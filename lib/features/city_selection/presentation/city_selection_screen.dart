@@ -12,6 +12,8 @@ class CitySelectionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Şehir Seçimi')),
       body: ListView.separated(
@@ -23,13 +25,19 @@ class CitySelectionScreen extends StatelessWidget {
           final selected = city == currentCity;
 
           return ListTile(
+            selected: selected,
+            selectedColor: colorScheme.primary,
+            selectedTileColor: colorScheme.primaryContainer,
             title: Text(city),
             trailing: selected
                 ? Icon(
                     Icons.check_circle,
-                    color: Theme.of(context).colorScheme.primary,
+                    color: colorScheme.primary,
                   )
-                : const Icon(Icons.radio_button_unchecked),
+                : Icon(
+                    Icons.radio_button_unchecked,
+                    color: colorScheme.outline,
+                  ),
             onTap: () => Navigator.of(context).pop(city),
           );
         },

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../data/models/daily_prayer_times.dart';
 import '../../../data/models/prayer_time.dart';
+import '../../../data/repositories/api_prayer_times_repository.dart';
 import '../../../data/repositories/mock_prayer_times_repository.dart';
 import '../../../data/repositories/prayer_times_repository.dart';
 import '../../../data/services/notification_service.dart';
@@ -18,7 +19,8 @@ class PrayerTimesHomeScreen extends StatefulWidget {
 }
 
 class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
-  final PrayerTimesRepository _repository = MockPrayerTimesRepository();
+  final PrayerTimesRepository _repository = ApiPrayerTimesRepository();
+  final PrayerTimesRepository _fallbackRepository = MockPrayerTimesRepository();
   final SelectedCityService _selectedCityService = SelectedCityService();
   final NotificationService _notificationService = NotificationService.instance;
 
@@ -26,6 +28,8 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
   String? _selectedCity;
   String? _errorText;
   bool _isLoading = true;
+
+  List<String> get _availableCities => _fallbackRepository.availableCities;
 
   @override
   void initState() {
@@ -37,9 +41,9 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
     try {
       final storedCity = await _selectedCityService.readSelectedCity();
       final city = storedCity ??
-          (_repository.availableCities.contains('İstanbul')
+          (_availableCities.contains('İstanbul')
               ? 'İstanbul'
-              : _repository.availableCities.first);
+              : _availableCities.first);
       await _loadCity(city: city, persistCity: storedCity == null);
     } catch (error, stackTrace) {
       debugPrint('İlk veriler yüklenirken hata: $error');
@@ -64,10 +68,22 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
     });
 
     try {
-      final dailyPrayerTimes = await _repository.getDailyPrayerTimes(
-        city: city,
-        date: DateTime.now(),
-      );
+      final date = DateTime.now();
+      late final DailyPrayerTimes dailyPrayerTimes;
+
+      try {
+        dailyPrayerTimes = await _repository.getDailyPrayerTimes(
+          city: city,
+          date: date,
+        );
+      } catch (apiError, stackTrace) {
+        debugPrint('API verisi alinamadi, mock veriye geciliyor: $apiError');
+        debugPrintStack(stackTrace: stackTrace);
+        dailyPrayerTimes = await _fallbackRepository.getDailyPrayerTimes(
+          city: city,
+          date: date,
+        );
+      }
 
       if (persistCity) {
         await _selectedCityService.saveSelectedCity(city);
@@ -104,7 +120,7 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
     final selectedCity = await Navigator.of(context).push<String>(
       MaterialPageRoute<String>(
         builder: (_) => CitySelectionScreen(
-          cities: _repository.availableCities,
+          cities: _availableCities,
           currentCity: _selectedCity,
         ),
       ),
