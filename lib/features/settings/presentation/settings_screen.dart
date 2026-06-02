@@ -69,20 +69,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const Divider(height: 24),
                 const _SectionTitle(title: 'Bildirim süresi'),
-                for (final minutes
-                    in NotificationSettings.allowedReminderMinutes)
-                  RadioListTile<int>(
-                    title: Text('$minutes dakika önce'),
-                    value: minutes,
-                    groupValue: _minutesBefore,
-                    selected: minutes == _minutesBefore,
-                    onChanged: (value) {
+                RadioGroup<int>(
+                  groupValue: _minutesBefore,
+                  onChanged: (value) {
                       if (value == null) {
                         return;
                       }
                       _setMinutesBefore(value);
                     },
+                  child: Column(
+                    children: [
+                      for (final minutes
+                          in NotificationSettings.allowedReminderMinutes)
+                        RadioListTile<int>(
+                          title: Text('$minutes dakika önce'),
+                          value: minutes,
+                          selected: minutes == _minutesBefore,
+                        ),
+                    ],
                   ),
+                ),
               ],
             ),
     );
