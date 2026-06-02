@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_constants.dart';
 import '../../../data/models/daily_prayer_times.dart';
 import '../../../data/models/prayer_time.dart';
 import '../../../data/repositories/api_prayer_times_repository.dart';
 import '../../../data/repositories/mock_prayer_times_repository.dart';
 import '../../../data/repositories/prayer_times_repository.dart';
 import '../../../data/services/notification_service.dart';
+import '../../../data/services/notification_settings_service.dart';
 import '../../../data/services/selected_city_service.dart';
 import '../../city_selection/presentation/city_selection_screen.dart';
+import '../../settings/presentation/settings_screen.dart';
 import 'widgets/prayer_time_card.dart';
 
 class PrayerTimesHomeScreen extends StatefulWidget {
@@ -22,12 +23,15 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
   final PrayerTimesRepository _repository = ApiPrayerTimesRepository();
   final PrayerTimesRepository _fallbackRepository = MockPrayerTimesRepository();
   final SelectedCityService _selectedCityService = SelectedCityService();
+  final NotificationSettingsService _notificationSettingsService =
+      NotificationSettingsService();
   final NotificationService _notificationService = NotificationService.instance;
 
   DailyPrayerTimes? _dailyPrayerTimes;
   String? _selectedCity;
   String? _errorText;
   bool _isLoading = true;
+  NotificationSettings _notificationSettings = NotificationSettings.defaults;
 
   List<String> get _availableCities => _fallbackRepository.availableCities;
 
@@ -89,10 +93,9 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
         await _selectedCityService.saveSelectedCity(city);
       }
 
-      await _notificationService.schedulePrayerReminders(
-        dailyPrayerTimes,
-        minutesBefore: AppConstants.reminderMinutesBefore,
-      );
+      final notificationSettings =
+          await _notificationSettingsService.readSettings();
+      await _applyNotificationSettings(dailyPrayerTimes, notificationSettings);
 
       if (!mounted) {
         return;
@@ -101,6 +104,7 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
       setState(() {
         _selectedCity = city;
         _dailyPrayerTimes = dailyPrayerTimes;
+        _notificationSettings = notificationSettings;
         _isLoading = false;
       });
     } catch (error, stackTrace) {
@@ -114,6 +118,21 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _applyNotificationSettings(
+    DailyPrayerTimes dailyPrayerTimes,
+    NotificationSettings notificationSettings,
+  ) async {
+    if (!notificationSettings.notificationsEnabled) {
+      await _notificationService.cancelPrayerReminders();
+      return;
+    }
+
+    await _notificationService.schedulePrayerReminders(
+      dailyPrayerTimes,
+      minutesBefore: notificationSettings.minutesBefore,
+    );
   }
 
   Future<void> _openCitySelection() async {
@@ -133,6 +152,29 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
     await _loadCity(city: selectedCity);
   }
 
+  Future<void> _openSettings() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
+    );
+
+    final dailyPrayerTimes = _dailyPrayerTimes;
+    if (dailyPrayerTimes == null) {
+      return;
+    }
+
+    final notificationSettings =
+        await _notificationSettingsService.readSettings();
+    await _applyNotificationSettings(dailyPrayerTimes, notificationSettings);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _notificationSettings = notificationSettings;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -146,6 +188,11 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
             tooltip: 'Şehir seç',
             onPressed: _openCitySelection,
             icon: const Icon(Icons.location_city),
+          ),
+          IconButton(
+            tooltip: 'Ayarlar',
+            onPressed: _openSettings,
+            icon: const Icon(Icons.settings),
           ),
         ],
       ),
@@ -180,6 +227,10 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
           nextPrayerText: nextPrayer == null
               ? 'Bugün için vakit bulunamadı'
               : '${nextPrayer.name} - ${nextPrayer.formattedTime}',
+          notificationText: _notificationSettings.notificationsEnabled
+              ? 'Her vakitten ${_notificationSettings.minutesBefore} dakika '
+                  'önce bildirim planlanır.'
+              : 'Bildirimler kapalı.',
         ),
         const SizedBox(height: 16),
         Text(
@@ -250,11 +301,13 @@ class _HeaderCard extends StatelessWidget {
     required this.city,
     required this.dateText,
     required this.nextPrayerText,
+    required this.notificationText,
   });
 
   final String city;
   final String dateText;
   final String nextPrayerText;
+  final String notificationText;
 
   @override
   Widget build(BuildContext context) {
@@ -299,8 +352,7 @@ class _HeaderCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Her vakitten ${AppConstants.reminderMinutesBefore} dakika önce '
-              'bildirim planlanır.',
+              notificationText,
               style: textTheme.bodySmall?.copyWith(
                 color: colorScheme.onPrimaryContainer,
               ),

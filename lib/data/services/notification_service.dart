@@ -93,6 +93,18 @@ class NotificationService {
     }
   }
 
+  Future<void> cancelPrayerReminders() async {
+    if (kIsWeb) {
+      return;
+    }
+
+    if (!_isInitialized) {
+      await initialize();
+    }
+
+    await _plugin.cancelAll();
+  }
+
   Future<void> _configureLocalTimezone() async {
     try {
       final dynamic timezoneInfo = await FlutterTimezone.getLocalTimezone();
