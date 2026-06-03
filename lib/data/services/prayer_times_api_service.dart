@@ -52,6 +52,7 @@ class PrayerTimesApiService {
     return DailyPrayerTimes(
       city: city,
       date: date ?? _parseGregorianDate(data) ?? DateTime.now(),
+      hijriDateText: _parseHijriDateText(data),
       prayerTimes: <PrayerTime>[
         _parsePrayerTime('İmsak', timings['Fajr']),
         _parsePrayerTime('Güneş', timings['Sunrise']),
@@ -108,6 +109,63 @@ class PrayerTimesApiService {
     }
 
     return DateTime(year, month, day);
+  }
+
+  String? _parseHijriDateText(Map<String, dynamic> data) {
+    final date = data['date'];
+    if (date is! Map<String, dynamic>) {
+      return null;
+    }
+
+    final hijri = date['hijri'];
+    if (hijri is! Map<String, dynamic>) {
+      return null;
+    }
+
+    final day = _parseInt(hijri['day']);
+    final year = _parseInt(hijri['year']);
+    final month = hijri['month'];
+    if (month is! Map<String, dynamic>) {
+      return null;
+    }
+
+    final monthNumber = _parseInt(month['number']);
+    if (day == null || year == null || monthNumber == null) {
+      return null;
+    }
+
+    const monthNames = <int, String>{
+      1: 'Muharrem',
+      2: 'Safer',
+      3: 'Rebiülevvel',
+      4: 'Rebiülahir',
+      5: 'Cemaziyelevvel',
+      6: 'Cemaziyelahir',
+      7: 'Recep',
+      8: 'Şaban',
+      9: 'Ramazan',
+      10: 'Şevval',
+      11: 'Zilkade',
+      12: 'Zilhicce',
+    };
+    final monthName = monthNames[monthNumber];
+    if (monthName == null) {
+      return null;
+    }
+
+    return '$day $monthName $year';
+  }
+
+  int? _parseInt(Object? value) {
+    if (value is int) {
+      return value;
+    }
+
+    if (value is String) {
+      return int.tryParse(value.trim());
+    }
+
+    return null;
   }
 }
 

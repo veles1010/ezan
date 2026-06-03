@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../data/models/daily_prayer_times.dart';
@@ -10,6 +12,7 @@ import '../../../data/services/notification_service.dart';
 import '../../../data/services/notification_settings_service.dart';
 import '../../../data/services/selected_city_service.dart';
 import '../../city_selection/presentation/city_selection_screen.dart';
+import '../../qibla/presentation/qibla_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 import 'widgets/prayer_time_card.dart';
 
@@ -20,7 +23,8 @@ class PrayerTimesHomeScreen extends StatefulWidget {
   State<PrayerTimesHomeScreen> createState() => _PrayerTimesHomeScreenState();
 }
 
-class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
+class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
+    with WidgetsBindingObserver {
   final PrayerTimesRepository _repository = ApiPrayerTimesRepository();
   final PrayerTimesRepository _fallbackRepository = MockPrayerTimesRepository();
   final SelectedCityService _selectedCityService = SelectedCityService();
@@ -33,6 +37,7 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
   String? _selectedCity;
   String? _errorText;
   bool _isLoading = true;
+  Timer? _countdownTimer;
   NotificationSettings _notificationSettings = NotificationSettings.defaults;
 
   List<String> get _availableCities => _repository.availableCities;
@@ -40,7 +45,34 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _startCountdownTimer();
     _loadInitialData();
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      setState(() {});
+    }
+  }
+
+  void _startCountdownTimer() {
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || _dailyPrayerTimes == null) {
+        return;
+      }
+
+      setState(() {});
+    });
   }
 
   Future<void> _loadInitialData() async {
@@ -241,6 +273,12 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
     });
   }
 
+  Future<void> _openQibla() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const QiblaScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -259,6 +297,11 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
             tooltip: 'Konumuma git',
             onPressed: _goToCurrentLocation,
             icon: const Icon(Icons.my_location),
+          ),
+          IconButton(
+            tooltip: 'Kıble',
+            onPressed: _openQibla,
+            icon: const Icon(Icons.explore),
           ),
           IconButton(
             tooltip: 'Ayarlar',
@@ -287,7 +330,8 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
       return const Center(child: Text('Gösterilecek veri bulunamadı.'));
     }
 
-    final nextPrayer = _findNextPrayer(dailyPrayerTimes);
+    final nextPrayerInfo = _findNextPrayerInfo(dailyPrayerTimes);
+    final nextPrayer = nextPrayerInfo?.prayerTime;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -295,9 +339,13 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
         _HeaderCard(
           city: dailyPrayerTimes.city,
           dateText: _formatDate(dailyPrayerTimes.date),
+          hijriDateText: dailyPrayerTimes.hijriDateText,
           nextPrayerText: nextPrayer == null
               ? 'Bugün için vakit bulunamadı'
               : '${nextPrayer.name} - ${nextPrayer.formattedTime}',
+          remainingTimeText: nextPrayerInfo == null
+              ? '--:--:--'
+              : _formatRemainingTime(nextPrayerInfo.dateTime),
           notificationText: _notificationSettings.notificationsEnabled
               ? 'Her vakitten ${_notificationSettings.minutesBefore} dakika '
                   'önce bildirim planlanır.'
@@ -326,14 +374,34 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
     );
   }
 
-  PrayerTime? _findNextPrayer(DailyPrayerTimes dailyPrayerTimes) {
+  _NextPrayerInfo? _findNextPrayerInfo(DailyPrayerTimes dailyPrayerTimes) {
+    if (dailyPrayerTimes.prayerTimes.isEmpty) {
+      return null;
+    }
+
     final now = DateTime.now();
     for (final prayer in dailyPrayerTimes.prayerTimes) {
-      if (prayer.dateTimeOn(dailyPrayerTimes.date).isAfter(now)) {
-        return prayer;
+      final prayerDateTime = prayer.dateTimeOn(dailyPrayerTimes.date);
+      if (prayerDateTime.isAfter(now)) {
+        return _NextPrayerInfo(prayerTime: prayer, dateTime: prayerDateTime);
       }
     }
-    return null;
+
+    final firstPrayer = dailyPrayerTimes.prayerTimes.first;
+    final tomorrow = dailyPrayerTimes.date.add(const Duration(days: 1));
+    return _NextPrayerInfo(
+      prayerTime: firstPrayer,
+      dateTime: firstPrayer.dateTimeOn(tomorrow),
+    );
+  }
+
+  String _formatRemainingTime(DateTime targetDateTime) {
+    final remaining = targetDateTime.difference(DateTime.now());
+    final safeRemaining = remaining.isNegative ? Duration.zero : remaining;
+    final hours = safeRemaining.inHours;
+    final minutes = safeRemaining.inMinutes.remainder(60);
+    final seconds = safeRemaining.inSeconds.remainder(60);
+    return '${_twoDigits(hours)}:${_twoDigits(minutes)}:${_twoDigits(seconds)}';
   }
 
   String _formatDate(DateTime date) {
@@ -365,19 +433,37 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
     final month = months[date.month - 1];
     return '$weekday, ${date.day} $month ${date.year}';
   }
+
+  String _twoDigits(int value) {
+    return value.toString().padLeft(2, '0');
+  }
+}
+
+class _NextPrayerInfo {
+  const _NextPrayerInfo({
+    required this.prayerTime,
+    required this.dateTime,
+  });
+
+  final PrayerTime prayerTime;
+  final DateTime dateTime;
 }
 
 class _HeaderCard extends StatelessWidget {
   const _HeaderCard({
     required this.city,
     required this.dateText,
+    required this.hijriDateText,
     required this.nextPrayerText,
+    required this.remainingTimeText,
     required this.notificationText,
   });
 
   final String city;
   final String dateText;
+  final String? hijriDateText;
   final String nextPrayerText;
+  final String remainingTimeText;
   final String notificationText;
 
   @override
@@ -406,6 +492,15 @@ class _HeaderCard extends StatelessWidget {
                 color: colorScheme.onPrimaryContainer,
               ),
             ),
+            if (hijriDateText != null && hijriDateText!.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(
+                hijriDateText!,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onPrimaryContainer,
+                ),
+              ),
+            ],
             const SizedBox(height: 14),
             Text(
               'Sıradaki vakit',
@@ -416,6 +511,21 @@ class _HeaderCard extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               nextPrayerText,
+              style: textTheme.titleMedium?.copyWith(
+                color: colorScheme.onPrimaryContainer,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Kalan süre',
+              style: textTheme.labelLarge?.copyWith(
+                color: colorScheme.onPrimaryContainer,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              remainingTimeText,
               style: textTheme.titleMedium?.copyWith(
                 color: colorScheme.onPrimaryContainer,
                 fontWeight: FontWeight.w600,
