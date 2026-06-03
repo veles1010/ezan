@@ -43,6 +43,7 @@ dependencies:
   http: ^1.2.2
   geolocator: ^14.0.2
   geocoding: ^4.0.0
+  flutter_compass: ^0.8.1
 
 dev_dependencies:
   flutter_test:
