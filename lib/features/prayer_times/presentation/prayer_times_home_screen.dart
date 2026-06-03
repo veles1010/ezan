@@ -50,8 +50,8 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
           storedCity != null && _availableCities.contains(storedCity);
       final city = hasStoredCity
           ? storedCity
-          : (_availableCities.contains('Antalya')
-              ? 'Antalya'
+          : (_availableCities.contains('İstanbul')
+              ? 'İstanbul'
               : _availableCities.first);
       await _loadCity(city: city, persistCity: !hasStoredCity);
     } catch (error, stackTrace) {
