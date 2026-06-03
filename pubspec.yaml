@@ -45,6 +45,7 @@ dependencies:
   geocoding: ^4.0.0
   flutter_compass: ^0.8.1
   google_mobile_ads: ^8.0.0
+  share_plus: ^11.1.0
 
 dev_dependencies:
   flutter_test:

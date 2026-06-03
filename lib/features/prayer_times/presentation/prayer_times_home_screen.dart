@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/widgets/banner_ad_widget.dart';
 import '../../../data/models/daily_prayer_times.dart';
@@ -308,6 +309,82 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
     );
   }
 
+  Future<void> _shareTodayPrayerTimes() async {
+    final dailyPrayerTimes = _dailyPrayerTimes;
+    if (dailyPrayerTimes == null) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Paylaşılacak namaz vakti bulunamadı.'),
+        ),
+      );
+      return;
+    }
+
+    try {
+      final renderObject = context.findRenderObject();
+      final sharePositionOrigin = renderObject is RenderBox
+          ? renderObject.localToGlobal(Offset.zero) & renderObject.size
+          : null;
+
+      await SharePlus.instance.share(
+        ShareParams(
+          text: _buildPrayerTimesShareText(dailyPrayerTimes),
+          title: '${dailyPrayerTimes.city} Namaz Vakitleri',
+          subject: '${dailyPrayerTimes.city} Namaz Vakitleri',
+          sharePositionOrigin: sharePositionOrigin,
+        ),
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Namaz vakitleri paylaşılamadı: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Namaz vakitleri paylaşılırken bir hata oluştu.'),
+        ),
+      );
+    }
+  }
+
+  String _buildPrayerTimesShareText(DailyPrayerTimes dailyPrayerTimes) {
+    final hijriDateText = dailyPrayerTimes.hijriDateText;
+
+    return <String>[
+      '${dailyPrayerTimes.city} Namaz Vakitleri',
+      _formatDate(dailyPrayerTimes.date),
+      if (hijriDateText != null && hijriDateText.isNotEmpty) hijriDateText,
+      '',
+      _formatPrayerShareLine(dailyPrayerTimes, 'İmsak'),
+      _formatPrayerShareLine(dailyPrayerTimes, 'Güneş'),
+      _formatPrayerShareLine(dailyPrayerTimes, 'Öğle'),
+      _formatPrayerShareLine(dailyPrayerTimes, 'İkindi'),
+      _formatPrayerShareLine(dailyPrayerTimes, 'Akşam'),
+      _formatPrayerShareLine(dailyPrayerTimes, 'Yatsı'),
+      '',
+      'Ezan Vakti uygulaması ile paylaşıldı.',
+    ].join('\n');
+  }
+
+  String _formatPrayerShareLine(
+    DailyPrayerTimes dailyPrayerTimes,
+    String prayerName,
+  ) {
+    for (final prayerTime in dailyPrayerTimes.prayerTimes) {
+      if (prayerTime.name == prayerName) {
+        return '$prayerName: ${prayerTime.formattedTime}';
+      }
+    }
+
+    return '$prayerName: --:--';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -341,6 +418,11 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
             tooltip: 'Ramazan',
             onPressed: _openRamadan,
             icon: const Icon(Icons.nightlight_round),
+          ),
+          IconButton(
+            tooltip: 'Paylaş',
+            onPressed: _shareTodayPrayerTimes,
+            icon: const Icon(Icons.share),
           ),
           IconButton(
             tooltip: 'Ayarlar',

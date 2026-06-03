@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../data/services/notification_settings_service.dart';
 import '../../../data/services/theme_settings_service.dart';
+import 'about_privacy_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -62,6 +63,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _themeMode = themeMode;
     });
     await _themeSettingsService.saveThemeMode(themeMode);
+  }
+
+  Future<void> _openAboutPrivacy() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const AboutPrivacyScreen(),
+      ),
+    );
   }
 
   @override
@@ -131,6 +140,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ],
                   ),
+                ),
+                const Divider(height: 24),
+                ListTile(
+                  leading: const Icon(Icons.info_outline),
+                  title: const Text('Hakkında ve Gizlilik'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _openAboutPrivacy,
                 ),
               ],
             ),
