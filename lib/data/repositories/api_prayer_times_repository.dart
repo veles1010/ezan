@@ -104,4 +104,14 @@ class ApiPrayerTimesRepository implements PrayerTimesRepository {
   }) {
     return _apiService.fetchDailyPrayerTimes(city: city, date: date);
   }
+
+  Future<List<DailyPrayerTimes>> getThirtyDayPrayerTimes({
+    required String city,
+    required DateTime startDate,
+  }) {
+    return _apiService.fetchThirtyDayPrayerTimes(
+      city: city,
+      startDate: startDate,
+    );
+  }
 }

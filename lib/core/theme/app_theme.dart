@@ -4,10 +4,21 @@ class AppTheme {
   AppTheme._();
 
   static ThemeData light() {
+    return _buildTheme(Brightness.light);
+  }
+
+  static ThemeData dark() {
+    return _buildTheme(Brightness.dark);
+  }
+
+  static ThemeData _buildTheme(Brightness brightness) {
     const seedColor = Color(0xFF0B7A75);
     final base = ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(seedColor: seedColor),
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: seedColor,
+        brightness: brightness,
+      ),
     );
 
     return base.copyWith(

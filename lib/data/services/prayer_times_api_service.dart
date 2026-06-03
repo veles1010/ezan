@@ -19,13 +19,7 @@ class PrayerTimesApiService {
     required String city,
     DateTime? date,
   }) async {
-    final uri = Uri.parse(_baseUrl).replace(
-      queryParameters: <String, String>{
-        'city': city,
-        'country': _country,
-        'method': _method,
-      },
-    );
+    final uri = _buildTimingsUri(date: date, city: city);
 
     final response = await _client.get(uri);
     if (response.statusCode != 200) {
@@ -61,6 +55,39 @@ class PrayerTimesApiService {
         _parsePrayerTime('Akşam', timings['Maghrib']),
         _parsePrayerTime('Yatsı', timings['Isha']),
       ],
+    );
+  }
+
+  Future<List<DailyPrayerTimes>> fetchThirtyDayPrayerTimes({
+    required String city,
+    required DateTime startDate,
+  }) async {
+    final firstDay = DateTime(startDate.year, startDate.month, startDate.day);
+    final prayerTimes = <DailyPrayerTimes>[];
+
+    for (var dayOffset = 0; dayOffset < 30; dayOffset++) {
+      final date = firstDay.add(Duration(days: dayOffset));
+      prayerTimes.add(
+        await fetchDailyPrayerTimes(city: city, date: date),
+      );
+    }
+
+    return prayerTimes;
+  }
+
+  Uri _buildTimingsUri({
+    required String city,
+    DateTime? date,
+  }) {
+    final endpoint =
+        date == null ? _baseUrl : '$_baseUrl/${_formatApiDate(date)}';
+
+    return Uri.parse(endpoint).replace(
+      queryParameters: <String, String>{
+        'city': city,
+        'country': _country,
+        'method': _method,
+      },
     );
   }
 
@@ -156,6 +183,10 @@ class PrayerTimesApiService {
     return '$day $monthName $year';
   }
 
+  String _formatApiDate(DateTime date) {
+    return '${_twoDigits(date.day)}-${_twoDigits(date.month)}-${date.year}';
+  }
+
   int? _parseInt(Object? value) {
     if (value is int) {
       return value;
@@ -166,6 +197,10 @@ class PrayerTimesApiService {
     }
 
     return null;
+  }
+
+  String _twoDigits(int value) {
+    return value.toString().padLeft(2, '0');
   }
 }
 

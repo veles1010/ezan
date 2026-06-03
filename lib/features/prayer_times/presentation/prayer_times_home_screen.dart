@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/banner_ad_widget.dart';
 import '../../../data/models/daily_prayer_times.dart';
 import '../../../data/models/prayer_time.dart';
 import '../../../data/repositories/api_prayer_times_repository.dart';
@@ -12,7 +13,9 @@ import '../../../data/services/notification_service.dart';
 import '../../../data/services/notification_settings_service.dart';
 import '../../../data/services/selected_city_service.dart';
 import '../../city_selection/presentation/city_selection_screen.dart';
+import '../../prayer_calendar/presentation/prayer_calendar_screen.dart';
 import '../../qibla/presentation/qibla_screen.dart';
+import '../../ramadan/presentation/ramadan_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 import 'widgets/prayer_time_card.dart';
 
@@ -279,6 +282,32 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
     );
   }
 
+  Future<void> _openPrayerCalendar() async {
+    final city = _selectedCity ?? _dailyPrayerTimes?.city;
+    if (city == null) {
+      return;
+    }
+
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => PrayerCalendarScreen(city: city),
+      ),
+    );
+  }
+
+  Future<void> _openRamadan() async {
+    final city = _selectedCity ?? _dailyPrayerTimes?.city;
+    if (city == null) {
+      return;
+    }
+
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => RamadanScreen(city: city),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -304,15 +333,32 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
             icon: const Icon(Icons.explore),
           ),
           IconButton(
+            tooltip: 'Takvim',
+            onPressed: _openPrayerCalendar,
+            icon: const Icon(Icons.calendar_month),
+          ),
+          IconButton(
+            tooltip: 'Ramazan',
+            onPressed: _openRamadan,
+            icon: const Icon(Icons.nightlight_round),
+          ),
+          IconButton(
             tooltip: 'Ayarlar',
             onPressed: _openSettings,
             icon: const Icon(Icons.settings),
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: _buildContent(theme, dailyPrayerTimes),
+      body: Column(
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: _buildContent(theme, dailyPrayerTimes),
+            ),
+          ),
+          const BannerAdWidget(),
+        ],
       ),
     );
   }
