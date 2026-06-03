@@ -33,7 +33,7 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
   bool _isLoading = true;
   NotificationSettings _notificationSettings = NotificationSettings.defaults;
 
-  List<String> get _availableCities => _fallbackRepository.availableCities;
+  List<String> get _availableCities => _repository.availableCities;
 
   @override
   void initState() {
@@ -44,11 +44,14 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
   Future<void> _loadInitialData() async {
     try {
       final storedCity = await _selectedCityService.readSelectedCity();
-      final city = storedCity ??
-          (_availableCities.contains('İstanbul')
-              ? 'İstanbul'
+      final hasStoredCity =
+          storedCity != null && _availableCities.contains(storedCity);
+      final city = hasStoredCity
+          ? storedCity
+          : (_availableCities.contains('Antalya')
+              ? 'Antalya'
               : _availableCities.first);
-      await _loadCity(city: city, persistCity: storedCity == null);
+      await _loadCity(city: city, persistCity: !hasStoredCity);
     } catch (error, stackTrace) {
       debugPrint('İlk veriler yüklenirken hata: $error');
       debugPrintStack(stackTrace: stackTrace);
