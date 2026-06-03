@@ -96,7 +96,8 @@ class _CitySelectionScreenState extends State<CitySelectionScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final favoriteCities = _filteredFavoriteCities;
     final regularCities = _filteredRegularCities;
-    final hasVisibleCities = favoriteCities.isNotEmpty || regularCities.isNotEmpty;
+    final hasVisibleCities =
+        favoriteCities.isNotEmpty || regularCities.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Şehir Seçimi')),
