@@ -5,6 +5,7 @@ import '../../../data/models/prayer_time.dart';
 import '../../../data/repositories/api_prayer_times_repository.dart';
 import '../../../data/repositories/mock_prayer_times_repository.dart';
 import '../../../data/repositories/prayer_times_repository.dart';
+import '../../../data/services/location_service.dart';
 import '../../../data/services/notification_service.dart';
 import '../../../data/services/notification_settings_service.dart';
 import '../../../data/services/selected_city_service.dart';
@@ -23,6 +24,7 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
   final PrayerTimesRepository _repository = ApiPrayerTimesRepository();
   final PrayerTimesRepository _fallbackRepository = MockPrayerTimesRepository();
   final SelectedCityService _selectedCityService = SelectedCityService();
+  final LocationService _locationService = LocationService();
   final NotificationSettingsService _notificationSettingsService =
       NotificationSettingsService();
   final NotificationService _notificationService = NotificationService.instance;
@@ -155,6 +157,67 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
     await _loadCity(city: selectedCity);
   }
 
+  Future<void> _goToCurrentLocation() async {
+    try {
+      final location = await _locationService.getCurrentLocation();
+      final cityName = await _locationService.getCityNameFromCoordinates(
+        location,
+      );
+      if (cityName == null) {
+        debugPrint('Konumdan şehir bulunamadı, mevcut şehir korunuyor.');
+        return;
+      }
+
+      final city = _findSupportedCity(cityName);
+      if (city == null) {
+        debugPrint('$cityName desteklenmiyor, mevcut şehir korunuyor.');
+        return;
+      }
+
+      await _loadCity(city: city);
+    } catch (error, stackTrace) {
+      debugPrint('Konumdan sehir alinamadi: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    }
+  }
+
+  String? _findSupportedCity(String cityName) {
+    final normalizedCityName = _normalizeCityName(cityName);
+
+    for (final city in _availableCities) {
+      final normalizedCity = _normalizeCityName(city);
+      if (normalizedCityName == normalizedCity ||
+          normalizedCityName.contains(normalizedCity) ||
+          normalizedCity.contains(normalizedCityName)) {
+        return city;
+      }
+    }
+
+    return null;
+  }
+
+  String _normalizeCityName(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll('\u0307', '')
+        .replaceAll('\u00e7', 'c')
+        .replaceAll('\u011f', 'g')
+        .replaceAll('\u0131', 'i')
+        .replaceAll('\u00f6', 'o')
+        .replaceAll('\u015f', 's')
+        .replaceAll('\u00fc', 'u')
+        .replaceAll(' province', '')
+        .replaceAll(' ili', '')
+        .trim();
+  }
+
   Future<void> _openSettings() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
@@ -191,6 +254,11 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen> {
             tooltip: 'Şehir seç',
             onPressed: _openCitySelection,
             icon: const Icon(Icons.location_city),
+          ),
+          IconButton(
+            tooltip: 'Konumuma git',
+            onPressed: _goToCurrentLocation,
+            icon: const Icon(Icons.my_location),
           ),
           IconButton(
             tooltip: 'Ayarlar',
