@@ -44,6 +44,30 @@ class _CitySelectionScreenState extends State<CitySelectionScreen> {
         .toList();
   }
 
+  List<TurkeyLocationSelection> get _filteredFavoritePlaces {
+    final query = normalizeTurkeyLocationText(_query);
+    final favoritePlaces = <String, TurkeyLocationSelection>{};
+
+    for (final favoriteCity in _favoriteCities) {
+      final location = TurkeyLocationSelection.tryParse(favoriteCity);
+      if (location == null) {
+        continue;
+      }
+
+      if (query.isNotEmpty &&
+          !normalizeTurkeyLocationText(location.displayName).contains(query)) {
+        continue;
+      }
+
+      favoritePlaces[location.displayName] = location;
+    }
+
+    return favoritePlaces.values.toList()
+      ..sort(
+        (first, second) => first.displayName.compareTo(second.displayName),
+      );
+  }
+
   List<String> get _filteredDistricts {
     final province = _selectedProvince;
     if (province == null) {
@@ -59,36 +83,6 @@ class _CitySelectionScreenState extends State<CitySelectionScreen> {
     return sortedDistricts
         .where(
           (district) => normalizeTurkeyLocationText(district).contains(query),
-        )
-        .toList();
-  }
-
-  List<String> get _filteredFavoriteDistricts {
-    final province = _selectedProvince;
-    if (province == null) {
-      return <String>[];
-    }
-
-    return _filteredDistricts
-        .where(
-          (district) => _favoriteCities.contains(
-            _displayNameFor(province: province.name, district: district),
-          ),
-        )
-        .toList();
-  }
-
-  List<String> get _filteredRegularDistricts {
-    final province = _selectedProvince;
-    if (province == null) {
-      return <String>[];
-    }
-
-    return _filteredDistricts
-        .where(
-          (district) => !_favoriteCities.contains(
-            _displayNameFor(province: province.name, district: district),
-          ),
         )
         .toList();
   }
@@ -110,7 +104,9 @@ class _CitySelectionScreenState extends State<CitySelectionScreen> {
 
     setState(() {
       _favoriteCities = favoriteCities
-          .where((city) => TurkeyLocationSelection.tryParse(city) != null)
+          .map(TurkeyLocationSelection.tryParse)
+          .whereType<TurkeyLocationSelection>()
+          .map((location) => location.displayName)
           .toSet();
     });
   }
@@ -190,15 +186,19 @@ class _CitySelectionScreenState extends State<CitySelectionScreen> {
           Expanded(
             child: selectedProvince == null
                 ? _ProvinceList(
+                    favoritePlaces: _filteredFavoritePlaces,
                     provinces: _filteredProvinces,
                     currentLocation: _currentLocation,
                     colorScheme: colorScheme,
+                    onFavoritePlaceSelected: (displayName) {
+                      Navigator.of(context).pop(displayName);
+                    },
+                    onFavoritePressed: _toggleFavoriteCity,
                     onProvinceSelected: _selectProvince,
                   )
                 : _DistrictList(
                     province: selectedProvince,
-                    favoriteDistricts: _filteredFavoriteDistricts,
-                    regularDistricts: _filteredRegularDistricts,
+                    districts: _filteredDistricts,
                     currentLocation: _currentLocation,
                     favoriteCities: _favoriteCities,
                     colorScheme: colorScheme,
@@ -217,36 +217,60 @@ class _CitySelectionScreenState extends State<CitySelectionScreen> {
 
 class _ProvinceList extends StatelessWidget {
   const _ProvinceList({
+    required this.favoritePlaces,
     required this.provinces,
     required this.currentLocation,
     required this.colorScheme,
+    required this.onFavoritePlaceSelected,
+    required this.onFavoritePressed,
     required this.onProvinceSelected,
   });
 
+  final List<TurkeyLocationSelection> favoritePlaces;
   final List<TurkeyProvince> provinces;
   final TurkeyLocationSelection? currentLocation;
   final ColorScheme colorScheme;
+  final ValueChanged<String> onFavoritePlaceSelected;
+  final ValueChanged<String> onFavoritePressed;
   final ValueChanged<TurkeyProvince> onProvinceSelected;
 
   @override
   Widget build(BuildContext context) {
-    if (provinces.isEmpty) {
+    final hasFavoritePlaces = favoritePlaces.isNotEmpty;
+    final hasProvinces = provinces.isNotEmpty;
+
+    if (!hasFavoritePlaces && !hasProvinces) {
       return const Center(child: Text('İl bulunamadı.'));
     }
 
     return ListView(
       padding: const EdgeInsets.only(top: 8, bottom: 24),
       children: [
-        for (final province in provinces)
-          ListTile(
-            selected: province.name == currentLocation?.province,
-            selectedColor: colorScheme.primary,
-            selectedTileColor: colorScheme.primaryContainer,
-            title: Text(province.name),
-            subtitle: Text('${province.districts.length} ilçe'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => onProvinceSelected(province),
-          ),
+        if (hasFavoritePlaces) ...[
+          const _SectionTitle(title: 'Favori Yerler'),
+          for (final favoritePlace in favoritePlaces)
+            _FavoritePlaceTile(
+              location: favoritePlace,
+              selected: favoritePlace.displayName == currentLocation?.displayName,
+              colorScheme: colorScheme,
+              onTap: onFavoritePlaceSelected,
+              onFavoritePressed: onFavoritePressed,
+            ),
+          if (hasProvinces) const Divider(height: 16),
+        ],
+        if (hasProvinces) ...[
+          if (hasFavoritePlaces) const _SectionTitle(title: 'İller'),
+          for (final province in provinces)
+            ListTile(
+              selected: province.name == currentLocation?.province,
+              selectedColor: colorScheme.primary,
+              selectedTileColor: colorScheme.primaryContainer,
+              title: Text(province.name),
+              subtitle: Text('${province.districts.length} ilçe'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => onProvinceSelected(province),
+            ),
+        ],
       ],
     );
   }
@@ -255,8 +279,7 @@ class _ProvinceList extends StatelessWidget {
 class _DistrictList extends StatelessWidget {
   const _DistrictList({
     required this.province,
-    required this.favoriteDistricts,
-    required this.regularDistricts,
+    required this.districts,
     required this.currentLocation,
     required this.favoriteCities,
     required this.colorScheme,
@@ -266,8 +289,7 @@ class _DistrictList extends StatelessWidget {
   });
 
   final TurkeyProvince province;
-  final List<String> favoriteDistricts;
-  final List<String> regularDistricts;
+  final List<String> districts;
   final TurkeyLocationSelection? currentLocation;
   final Set<String> favoriteCities;
   final ColorScheme colorScheme;
@@ -280,50 +302,74 @@ class _DistrictList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasVisibleDistricts =
-        favoriteDistricts.isNotEmpty || regularDistricts.isNotEmpty;
-
-    if (!hasVisibleDistricts) {
+    if (districts.isEmpty) {
       return const Center(child: Text('İlçe bulunamadı.'));
     }
 
     return ListView(
       padding: const EdgeInsets.only(top: 8, bottom: 24),
       children: [
-        if (favoriteDistricts.isNotEmpty) ...[
-          const _SectionTitle(title: 'Favori İlçeler'),
-          for (final district in favoriteDistricts)
-            _DistrictTile(
+        for (final district in districts)
+          _DistrictTile(
+            province: province.name,
+            district: district,
+            currentLocation: currentLocation,
+            favorite: favoriteCities.contains(displayNameFor(
               province: province.name,
               district: district,
-              currentLocation: currentLocation,
-              favorite: true,
-              colorScheme: colorScheme,
-              displayNameFor: displayNameFor,
-              onTap: onDistrictSelected,
-              onFavoritePressed: onFavoritePressed,
-            ),
-          const Divider(height: 16),
-        ],
-        if (regularDistricts.isNotEmpty) ...[
-          if (favoriteDistricts.isNotEmpty)
-            const _SectionTitle(title: 'Tüm İlçeler'),
-          for (final district in regularDistricts)
-            _DistrictTile(
-              province: province.name,
-              district: district,
-              currentLocation: currentLocation,
-              favorite: favoriteCities.contains(displayNameFor(
-                province: province.name,
-                district: district,
-              )),
-              colorScheme: colorScheme,
-              displayNameFor: displayNameFor,
-              onTap: onDistrictSelected,
-              onFavoritePressed: onFavoritePressed,
-            ),
-        ],
+            )),
+            colorScheme: colorScheme,
+            displayNameFor: displayNameFor,
+            onTap: onDistrictSelected,
+            onFavoritePressed: onFavoritePressed,
+          ),
       ],
+    );
+  }
+}
+
+class _FavoritePlaceTile extends StatelessWidget {
+  const _FavoritePlaceTile({
+    required this.location,
+    required this.selected,
+    required this.colorScheme,
+    required this.onTap,
+    required this.onFavoritePressed,
+  });
+
+  final TurkeyLocationSelection location;
+  final bool selected;
+  final ColorScheme colorScheme;
+  final ValueChanged<String> onTap;
+  final ValueChanged<String> onFavoritePressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final displayName = location.displayName;
+
+    return ListTile(
+      selected: selected,
+      selectedColor: colorScheme.primary,
+      selectedTileColor: colorScheme.primaryContainer,
+      leading: IconButton(
+        tooltip: 'Favorilerden çıkar',
+        onPressed: () => onFavoritePressed(displayName),
+        icon: Icon(
+          Icons.star,
+          color: colorScheme.primary,
+        ),
+      ),
+      title: Text(displayName),
+      trailing: selected
+          ? Icon(
+              Icons.check_circle,
+              color: colorScheme.primary,
+            )
+          : Icon(
+              Icons.radio_button_unchecked,
+              color: colorScheme.outline,
+            ),
+      onTap: () => onTap(displayName),
     );
   }
 }

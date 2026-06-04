@@ -1473,6 +1473,10 @@ TurkeyProvince? findTurkeyProvince(String provinceName) {
   return null;
 }
 
+String? findTurkeyDistrictName(String provinceName, String districtName) {
+  return _findDistrictName(provinceName, districtName);
+}
+
 bool isSupportedTurkeyLocation(String value) {
   return TurkeyLocationSelection.tryParse(value) != null;
 }
@@ -1487,6 +1491,13 @@ String normalizeTurkeyLocationText(String value) {
       .replaceAll('ö', 'o')
       .replaceAll('ş', 's')
       .replaceAll('ü', 'u')
+      .replaceAll(' province', '')
+      .replaceAll(' district', '')
+      .replaceAll(' ili', '')
+      .replaceAll(' ilcesi', '')
+      .replaceAll(' ilçesi', '')
+      .replaceAll(' belediyesi', '')
+      .replaceAll(' mahallesi', '')
       .trim();
 }
 

@@ -202,21 +202,16 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
   Future<void> _goToCurrentLocation() async {
     try {
       final location = await _locationService.getCurrentLocation();
-      final cityName = await _locationService.getCityNameFromCoordinates(
+      final locationSelection =
+          await _locationService.getLocationSelectionFromCoordinates(
         location,
       );
-      if (cityName == null) {
-        debugPrint('Konumdan şehir bulunamadı, mevcut şehir korunuyor.');
+      if (locationSelection == null) {
+        debugPrint('Konumdan il/ilçe bulunamadı, mevcut seçim korunuyor.');
         return;
       }
 
-      final city = _findSupportedCity(cityName);
-      if (city == null) {
-        debugPrint('$cityName desteklenmiyor, mevcut şehir korunuyor.');
-        return;
-      }
-
-      await _loadCity(city: city);
+      await _loadCity(city: locationSelection.displayName);
     } catch (error, stackTrace) {
       debugPrint('Konumdan sehir alinamadi: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -228,36 +223,6 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
         SnackBar(content: Text(error.toString())),
       );
     }
-  }
-
-  String? _findSupportedCity(String cityName) {
-    final normalizedCityName = _normalizeCityName(cityName);
-
-    for (final city in _availableCities) {
-      final normalizedCity = _normalizeCityName(city);
-      if (normalizedCityName == normalizedCity ||
-          normalizedCityName.contains(normalizedCity) ||
-          normalizedCity.contains(normalizedCityName)) {
-        return city;
-      }
-    }
-
-    return null;
-  }
-
-  String _normalizeCityName(String value) {
-    return value
-        .toLowerCase()
-        .replaceAll('\u0307', '')
-        .replaceAll('\u00e7', 'c')
-        .replaceAll('\u011f', 'g')
-        .replaceAll('\u0131', 'i')
-        .replaceAll('\u00f6', 'o')
-        .replaceAll('\u015f', 's')
-        .replaceAll('\u00fc', 'u')
-        .replaceAll(' province', '')
-        .replaceAll(' ili', '')
-        .trim();
   }
 
   Future<void> _openSettings() async {

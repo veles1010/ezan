@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../turkey_cities_districts.dart';
+
 class DeviceLocation {
   const DeviceLocation({
     required this.latitude,
@@ -55,6 +57,15 @@ class LocationService {
   }
 
   Future<String?> getCityNameFromCoordinates(DeviceLocation location) async {
+    final locationSelection = await getLocationSelectionFromCoordinates(
+      location,
+    );
+    return locationSelection?.displayName;
+  }
+
+  Future<TurkeyLocationSelection?> getLocationSelectionFromCoordinates(
+    DeviceLocation location,
+  ) async {
     try {
       if (kIsWeb) {
         return null;
@@ -71,34 +82,105 @@ class LocationService {
       }
 
       for (final placemark in placemarks) {
-        final cityName = _firstNotEmpty(<String?>[
-          placemark.administrativeArea,
-          placemark.locality,
-          placemark.subAdministrativeArea,
-          placemark.name,
-        ]);
-        if (cityName != null) {
-          return cityName;
+        _debugPrintPlacemarkFields(placemark);
+
+        final locationSelection = _matchTurkeyLocation(placemark);
+        if (locationSelection != null) {
+          return locationSelection;
         }
       }
 
-      debugPrint('Geocoding sonucu şehir alanı içermiyor.');
+      debugPrint('Geocoding sonucu il/ilçe alanı eşleşmedi.');
       return null;
     } catch (error, stackTrace) {
-      debugPrint('Konumdan şehir alınırken hata: $error');
+      debugPrint('Konumdan il/ilçe alınırken hata: $error');
       debugPrintStack(stackTrace: stackTrace);
       return null;
     }
   }
 
-  String? _firstNotEmpty(Iterable<String?> values) {
+  TurkeyLocationSelection? _matchTurkeyLocation(Placemark placemark) {
+    final province = _firstMatchedProvince(<String?>[
+      placemark.administrativeArea,
+      placemark.subAdministrativeArea,
+      placemark.locality,
+      placemark.subLocality,
+      placemark.name,
+    ]);
+    if (province == null) {
+      return null;
+    }
+
+    final district = _firstMatchedDistrict(
+      province.name,
+      <String?>[
+        placemark.subAdministrativeArea,
+        placemark.locality,
+        placemark.subLocality,
+        placemark.name,
+      ],
+    );
+
+    return TurkeyLocationSelection(
+      province: province.name,
+      district: district,
+    );
+  }
+
+  TurkeyProvince? _firstMatchedProvince(Iterable<String?> values) {
     for (final value in values) {
-      if (value != null && value.trim().isNotEmpty) {
-        return value.trim();
+      final trimmedValue = _trimOrNull(value);
+      if (trimmedValue == null) {
+        continue;
+      }
+
+      final province = findTurkeyProvince(trimmedValue);
+      if (province != null) {
+        return province;
       }
     }
 
     return null;
+  }
+
+  String? _firstMatchedDistrict(
+    String provinceName,
+    Iterable<String?> values,
+  ) {
+    final normalizedProvinceName = normalizeTurkeyLocationText(provinceName);
+    for (final value in values) {
+      final trimmedValue = _trimOrNull(value);
+      if (trimmedValue == null ||
+          normalizeTurkeyLocationText(trimmedValue) == normalizedProvinceName) {
+        continue;
+      }
+
+      final district = findTurkeyDistrictName(provinceName, trimmedValue);
+      if (district != null) {
+        return district;
+      }
+    }
+
+    return null;
+  }
+
+  void _debugPrintPlacemarkFields(Placemark placemark) {
+    debugPrint(
+      'Geocoding alanları: '
+      'locality=${placemark.locality}, '
+      'subLocality=${placemark.subLocality}, '
+      'subAdministrativeArea=${placemark.subAdministrativeArea}, '
+      'administrativeArea=${placemark.administrativeArea}',
+    );
+  }
+
+  String? _trimOrNull(String? value) {
+    final trimmedValue = value?.trim();
+    if (trimmedValue == null || trimmedValue.isEmpty) {
+      return null;
+    }
+
+    return trimmedValue;
   }
 }
 
