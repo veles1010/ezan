@@ -9,6 +9,7 @@ import '../../../data/models/prayer_time.dart';
 import '../../../data/repositories/api_prayer_times_repository.dart';
 import '../../../data/repositories/mock_prayer_times_repository.dart';
 import '../../../data/repositories/prayer_times_repository.dart';
+import '../../../data/services/home_screen_widget_service.dart';
 import '../../../data/services/location_service.dart';
 import '../../../data/services/notification_service.dart';
 import '../../../data/services/notification_settings_service.dart';
@@ -36,6 +37,8 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
   final NotificationSettingsService _notificationSettingsService =
       NotificationSettingsService();
   final NotificationService _notificationService = NotificationService.instance;
+  final HomeScreenWidgetService _homeScreenWidgetService =
+      HomeScreenWidgetService();
 
   DailyPrayerTimes? _dailyPrayerTimes;
   String? _selectedCity;
@@ -133,6 +136,9 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
       if (persistCity) {
         await _selectedCityService.saveSelectedCity(city);
       }
+      unawaited(
+        _homeScreenWidgetService.updatePrayerTimesWidgetFromSelectedCity(),
+      );
 
       final notificationSettings =
           await _notificationSettingsService.readSettings();
