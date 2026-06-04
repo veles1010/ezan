@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/ramadan_prayer_day.dart';
+import '../turkey_cities_districts.dart';
 
 class RamadanPrayerTimesApiService {
   RamadanPrayerTimesApiService({http.Client? client})
@@ -19,15 +20,15 @@ class RamadanPrayerTimesApiService {
     required String city,
     DateTime? date,
   }) async {
-    final hijriYear = await _fetchCurrentHijriYear(city: city, date: date);
+    final location = _resolveLocation(city);
+    final hijriYear = await _fetchCurrentHijriYear(
+      location: location,
+      date: date,
+    );
     final uri = Uri.parse(
       '$_baseUrl/hijriCalendarByCity/$hijriYear/$_ramadanMonth',
     ).replace(
-      queryParameters: <String, String>{
-        'city': city,
-        'country': _country,
-        'method': _method,
-      },
+      queryParameters: _cityQueryParameters(location),
     );
 
     final response = await _client.get(uri);
@@ -71,17 +72,13 @@ class RamadanPrayerTimesApiService {
   }
 
   Future<int> _fetchCurrentHijriYear({
-    required String city,
+    required TurkeyLocationSelection location,
     DateTime? date,
   }) async {
     final uri = Uri.parse(
       '$_baseUrl/timingsByCity/${_formatApiDate(date ?? DateTime.now())}',
     ).replace(
-      queryParameters: <String, String>{
-        'city': city,
-        'country': _country,
-        'method': _method,
-      },
+      queryParameters: _cityQueryParameters(location),
     );
 
     final response = await _client.get(uri);
@@ -208,6 +205,26 @@ class RamadanPrayerTimesApiService {
 
   String _formatApiDate(DateTime date) {
     return '${_twoDigits(date.day)}-${_twoDigits(date.month)}-${date.year}';
+  }
+
+  TurkeyLocationSelection _resolveLocation(String city) {
+    return TurkeyLocationSelection.tryParse(city) ??
+        TurkeyLocationSelection(province: city);
+  }
+
+  Map<String, String> _cityQueryParameters(TurkeyLocationSelection location) {
+    final queryParameters = <String, String>{
+      'city': location.apiCity,
+      'country': _country,
+      'method': _method,
+    };
+
+    final district = location.district;
+    if (district != null && district.isNotEmpty) {
+      queryParameters['state'] = location.province;
+    }
+
+    return queryParameters;
   }
 
   String _twoDigits(int value) {

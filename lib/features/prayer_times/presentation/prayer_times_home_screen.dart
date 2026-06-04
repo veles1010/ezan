@@ -14,6 +14,7 @@ import '../../../data/services/location_service.dart';
 import '../../../data/services/notification_service.dart';
 import '../../../data/services/notification_settings_service.dart';
 import '../../../data/services/selected_city_service.dart';
+import '../../../data/turkey_cities_districts.dart';
 import '../../city_selection/presentation/city_selection_screen.dart';
 import '../../prayer_calendar/presentation/prayer_calendar_screen.dart';
 import '../../qibla/presentation/qibla_screen.dart';
@@ -86,7 +87,7 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
     try {
       final storedCity = await _selectedCityService.readSelectedCity();
       final hasStoredCity =
-          storedCity != null && _availableCities.contains(storedCity);
+          storedCity != null && isSupportedTurkeyLocation(storedCity);
       final city = hasStoredCity
           ? storedCity
           : (_availableCities.contains('İstanbul')
@@ -186,7 +187,6 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
     final selectedCity = await Navigator.of(context).push<String>(
       MaterialPageRoute<String>(
         builder: (_) => CitySelectionScreen(
-          cities: _availableCities,
           currentCity: _selectedCity,
         ),
       ),

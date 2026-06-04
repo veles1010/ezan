@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/daily_prayer_times.dart';
 import '../models/prayer_time.dart';
+import '../turkey_cities_districts.dart';
 
 class PrayerTimesApiService {
   PrayerTimesApiService({http.Client? client})
@@ -17,9 +18,11 @@ class PrayerTimesApiService {
 
   Future<DailyPrayerTimes> fetchDailyPrayerTimes({
     required String city,
+    String? district,
     DateTime? date,
   }) async {
-    final uri = _buildTimingsUri(date: date, city: city);
+    final location = _resolveLocation(city: city, district: district);
+    final uri = _buildTimingsUri(date: date, location: location);
 
     final response = await _client.get(uri);
     if (response.statusCode != 200) {
@@ -44,7 +47,7 @@ class PrayerTimesApiService {
     }
 
     return DailyPrayerTimes(
-      city: city,
+      city: location.displayName,
       date: date ?? _parseGregorianDate(data) ?? DateTime.now(),
       hijriDateText: _parseHijriDateText(data),
       prayerTimes: <PrayerTime>[
@@ -76,19 +79,42 @@ class PrayerTimesApiService {
   }
 
   Uri _buildTimingsUri({
-    required String city,
+    required TurkeyLocationSelection location,
     DateTime? date,
   }) {
     final endpoint =
         date == null ? _baseUrl : '$_baseUrl/${_formatApiDate(date)}';
+    final queryParameters = <String, String>{
+      'city': location.apiCity,
+      'country': _country,
+      'method': _method,
+    };
+
+    final district = location.district;
+    if (district != null && district.isNotEmpty) {
+      queryParameters['state'] = location.province;
+    }
 
     return Uri.parse(endpoint).replace(
-      queryParameters: <String, String>{
-        'city': city,
-        'country': _country,
-        'method': _method,
-      },
+      queryParameters: queryParameters,
     );
+  }
+
+  TurkeyLocationSelection _resolveLocation({
+    required String city,
+    String? district,
+  }) {
+    if (district != null && district.isNotEmpty) {
+      final location = TurkeyLocationSelection.tryParse('$city / $district');
+      if (location != null) {
+        return location;
+      }
+
+      return TurkeyLocationSelection(province: city, district: district);
+    }
+
+    return TurkeyLocationSelection.tryParse(city) ??
+        TurkeyLocationSelection(province: city);
   }
 
   PrayerTime _parsePrayerTime(String name, Object? value) {
