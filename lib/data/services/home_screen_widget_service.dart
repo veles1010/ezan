@@ -27,7 +27,7 @@ class HomeScreenWidgetService {
       'widget_next_prayer_target_millis';
   static const String widgetPrayerScheduleKey = 'widget_prayer_schedule';
   static const String androidWidgetProviderName =
-      'com.example.ezan_vakti.PrayerTimesWidgetProvider';
+      'com.veles.ezanvakti.PrayerTimesWidgetProvider';
 
   final SelectedCityService _selectedCityService;
   final PrayerTimesRepository _repository;

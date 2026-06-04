@@ -1,4 +1,4 @@
-package com.example.ezan_vakti
+package com.veles.ezanvakti
 
 import android.appwidget.AppWidgetManager
 import android.content.Context
