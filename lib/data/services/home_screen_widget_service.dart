@@ -22,6 +22,10 @@ class HomeScreenWidgetService {
   static const String widgetCityNameKey = 'widget_city_name';
   static const String widgetNextPrayerNameKey = 'widget_next_prayer_name';
   static const String widgetNextPrayerTimeKey = 'widget_next_prayer_time';
+  static const String widgetRemainingTimeKey = 'widget_remaining_time';
+  static const String widgetNextPrayerTargetMillisKey =
+      'widget_next_prayer_target_millis';
+  static const String widgetPrayerScheduleKey = 'widget_prayer_schedule';
   static const String androidWidgetProviderName =
       'com.example.ezan_vakti.PrayerTimesWidgetProvider';
 
@@ -39,24 +43,31 @@ class HomeScreenWidgetService {
       final city = await _selectedCityService.readSelectedCity();
       if (city == null || city.isEmpty) {
         debugPrint('Widget güncellenemedi: seçili şehir bulunamadı.');
+        await _saveSafeWidgetData();
         return;
       }
 
       final dailyPrayerTimes = await _loadPrayerTimes(city);
-      final nextPrayer = _findNextPrayer(dailyPrayerTimes);
-      if (nextPrayer == null) {
+      final nextPrayerInfo = _findNextPrayerInfo(dailyPrayerTimes);
+      if (nextPrayerInfo == null) {
         debugPrint('Widget güncellenemedi: sonraki vakit bulunamadı.');
+        await _saveSafeWidgetData();
         return;
       }
 
       await _saveWidgetData(
         cityName: dailyPrayerTimes.city,
-        nextPrayerName: nextPrayer.name,
-        nextPrayerTime: nextPrayer.formattedTime,
+        nextPrayerName: nextPrayerInfo.prayerTime.name,
+        nextPrayerTime: nextPrayerInfo.prayerTime.formattedTime,
+        remainingTime: _formatRemainingTime(nextPrayerInfo.dateTime),
+        nextPrayerTargetMillis:
+            nextPrayerInfo.dateTime.millisecondsSinceEpoch.toString(),
+        prayerSchedule: _serializePrayerSchedule(dailyPrayerTimes),
       );
     } catch (error, stackTrace) {
       debugPrint('Android ana ekran widget güncellenemedi: $error');
       debugPrintStack(stackTrace: stackTrace);
+      await _saveSafeWidgetData();
     }
   }
 
@@ -72,25 +83,49 @@ class HomeScreenWidgetService {
     }
   }
 
-  PrayerTime? _findNextPrayer(DailyPrayerTimes dailyPrayerTimes) {
+  _NextPrayerInfo? _findNextPrayerInfo(DailyPrayerTimes dailyPrayerTimes) {
     if (dailyPrayerTimes.prayerTimes.isEmpty) {
       return null;
     }
 
     final now = DateTime.now();
     for (final prayerTime in dailyPrayerTimes.prayerTimes) {
-      if (prayerTime.dateTimeOn(dailyPrayerTimes.date).isAfter(now)) {
-        return prayerTime;
+      final prayerDateTime = prayerTime.dateTimeOn(dailyPrayerTimes.date);
+      if (prayerDateTime.isAfter(now)) {
+        return _NextPrayerInfo(
+          prayerTime: prayerTime,
+          dateTime: prayerDateTime,
+        );
       }
     }
 
-    return dailyPrayerTimes.prayerTimes.first;
+    final firstPrayer = dailyPrayerTimes.prayerTimes.first;
+    final tomorrow = dailyPrayerTimes.date.add(const Duration(days: 1));
+    return _NextPrayerInfo(
+      prayerTime: firstPrayer,
+      dateTime: firstPrayer.dateTimeOn(tomorrow),
+    );
+  }
+
+  String _formatRemainingTime(DateTime targetDateTime) {
+    final remaining = targetDateTime.difference(DateTime.now());
+    final safeRemaining = remaining.isNegative ? Duration.zero : remaining;
+    final hours = safeRemaining.inHours;
+    final minutes = safeRemaining.inMinutes.remainder(60);
+    return '${_twoDigits(hours)}:${_twoDigits(minutes)}';
+  }
+
+  String _twoDigits(int value) {
+    return value.toString().padLeft(2, '0');
   }
 
   Future<void> _saveWidgetData({
     required String cityName,
     required String nextPrayerName,
     required String nextPrayerTime,
+    required String remainingTime,
+    required String nextPrayerTargetMillis,
+    required String prayerSchedule,
   }) async {
     await _homeWidgetClient.saveWidgetData(widgetCityNameKey, cityName);
     await _homeWidgetClient.saveWidgetData(
@@ -101,12 +136,66 @@ class HomeScreenWidgetService {
       widgetNextPrayerTimeKey,
       nextPrayerTime,
     );
+    await _homeWidgetClient.saveWidgetData(
+      widgetRemainingTimeKey,
+      remainingTime,
+    );
+    await _homeWidgetClient.saveWidgetData(
+      widgetNextPrayerTargetMillisKey,
+      nextPrayerTargetMillis,
+    );
+    await _homeWidgetClient.saveWidgetData(
+      widgetPrayerScheduleKey,
+      prayerSchedule,
+    );
     await _homeWidgetClient.updateWidget(
       qualifiedAndroidName: androidWidgetProviderName,
     );
   }
 
+  Future<void> _saveSafeWidgetData() async {
+    try {
+      await _saveWidgetData(
+        cityName: 'Ezan Vakti',
+        nextPrayerName: '--',
+        nextPrayerTime: '--:--',
+        remainingTime: '--:--',
+        nextPrayerTargetMillis: '0',
+        prayerSchedule: '',
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Güvenli widget verisi yazılamadı: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
   bool get _supportsAndroidHomeWidget {
     return !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
   }
+
+  String _serializePrayerSchedule(DailyPrayerTimes dailyPrayerTimes) {
+    return dailyPrayerTimes.prayerTimes.map((prayerTime) {
+      final targetMillis = prayerTime
+          .dateTimeOn(dailyPrayerTimes.date)
+          .millisecondsSinceEpoch
+          .toString();
+      return '${_cleanSchedulePart(prayerTime.name)}|'
+          '${_cleanSchedulePart(prayerTime.formattedTime)}|'
+          '$targetMillis';
+    }).join(';');
+  }
+
+  String _cleanSchedulePart(String value) {
+    return value.replaceAll('|', ' ').replaceAll(';', ' ').trim();
+  }
+}
+
+class _NextPrayerInfo {
+  const _NextPrayerInfo({
+    required this.prayerTime,
+    required this.dateTime,
+  });
+
+  final PrayerTime prayerTime;
+  final DateTime dateTime;
 }

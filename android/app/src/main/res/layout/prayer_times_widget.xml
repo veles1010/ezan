@@ -2,42 +2,47 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFFFFF"
+    android:background="@drawable/prayer_times_widget_background"
     android:gravity="center_vertical"
     android:orientation="vertical"
-    android:padding="12dp">
+    android:paddingStart="10dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="10dp"
+    android:paddingBottom="8dp">
 
     <TextView
         android:id="@+id/widget_city_name"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:ellipsize="end"
+        android:includeFontPadding="false"
         android:maxLines="1"
-        android:text="Ezan Vakti"
+        android:text="İstanbul"
         android:textColor="#1C1B1F"
-        android:textSize="16sp"
+        android:textSize="12sp"
         android:textStyle="bold" />
 
     <TextView
-        android:id="@+id/widget_next_prayer_name"
+        android:id="@+id/widget_next_prayer_line"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="4dp"
         android:ellipsize="end"
+        android:includeFontPadding="false"
         android:maxLines="1"
-        android:text="Sonraki: --"
-        android:textColor="#49454F"
+        android:text="Öğle 13:07"
+        android:textColor="#1C1B1F"
         android:textSize="13sp" />
 
     <TextView
-        android:id="@+id/widget_next_prayer_time"
+        android:id="@+id/widget_remaining_time"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
+        android:layout_marginTop="4dp"
         android:ellipsize="end"
+        android:includeFontPadding="false"
         android:maxLines="1"
-        android:text="--:--"
-        android:textColor="#1C1B1F"
-        android:textSize="22sp"
-        android:textStyle="bold" />
+        android:text="Kalan 00:18"
+        android:textColor="#49454F"
+        android:textSize="12sp" />
 </LinearLayout>
