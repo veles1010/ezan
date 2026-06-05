@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/daily_prayer_times.dart';
@@ -24,7 +25,14 @@ class PrayerTimesApiService {
     final location = _resolveLocation(city: city, district: district);
     final uri = _buildTimingsUri(date: date, location: location);
 
+    debugPrint('Aladhan API URL: $uri');
+    debugPrint('Aladhan API secilen il: ${location.province}');
+    debugPrint('Aladhan API secilen ilce: ${location.district ?? '-'}');
+
     final response = await _client.get(uri);
+    debugPrint('Aladhan API statusCode: ${response.statusCode}');
+    debugPrint('Aladhan API response body: ${response.body}');
+
     if (response.statusCode != 200) {
       throw PrayerTimesApiException(
         'Aladhan API hata kodu: ${response.statusCode}',
@@ -95,9 +103,7 @@ class PrayerTimesApiService {
       queryParameters['state'] = location.province;
     }
 
-    return Uri.parse(endpoint).replace(
-      queryParameters: queryParameters,
-    );
+    return Uri.parse('$endpoint?${_encodedQueryParameters(queryParameters)}');
   }
 
   TurkeyLocationSelection _resolveLocation({
@@ -211,6 +217,16 @@ class PrayerTimesApiService {
 
   String _formatApiDate(DateTime date) {
     return '${_twoDigits(date.day)}-${_twoDigits(date.month)}-${date.year}';
+  }
+
+  String _encodedQueryParameters(Map<String, String> queryParameters) {
+    return queryParameters.entries
+        .map(
+          (entry) =>
+              '${Uri.encodeComponent(entry.key)}='
+              '${Uri.encodeComponent(entry.value)}',
+        )
+        .join('&');
   }
 
   int? _parseInt(Object? value) {

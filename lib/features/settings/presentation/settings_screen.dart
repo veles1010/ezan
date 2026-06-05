@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../../data/services/notification_service.dart';
 import '../../../data/services/notification_settings_service.dart';
 import '../../../data/services/theme_settings_service.dart';
 import 'about_privacy_screen.dart';
@@ -14,6 +16,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final NotificationSettingsService _settingsService =
       NotificationSettingsService();
+  final NotificationService _notificationService = NotificationService.instance;
   final ThemeSettingsService _themeSettingsService =
       ThemeSettingsService.instance;
 
@@ -58,6 +61,85 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await _settingsService.saveMinutesBefore(minutesBefore);
   }
 
+  Future<void> _sendTestNotification() async {
+    await _notificationService.showTestNotification();
+  }
+
+  Future<void> _scheduleTestNotificationAfterOneMinute() async {
+    final result =
+        await _notificationService.scheduleTestNotificationAfterOneMinute();
+    if (!mounted) {
+      return;
+    }
+
+    _showNotificationScheduleMessage(result);
+  }
+
+  Future<void> _openExactAlarmSettings() async {
+    if (!mounted) {
+      return;
+    }
+
+    final shouldOpen = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Kesin alarm izni'),
+        content: const Text(
+          'Android 12 ve üzeri cihazlarda namaz hatırlatmalarının zamanında '
+          'gelmesi için Kesin Alarm iznini açmanız gerekir. Açılan Android '
+          'ayarında Ezan Vakti için izni etkinleştirin.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Ayarı aç'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldOpen != true) {
+      return;
+    }
+
+    final isGranted = await _notificationService.openExactAlarmSettings();
+    if (!mounted) {
+      return;
+    }
+
+    final message = isGranted == true
+        ? 'Kesin Alarm izni açık görünüyor.'
+        : NotificationService.exactAlarmPermissionMessage;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  void _showNotificationScheduleMessage(NotificationScheduleResult result) {
+    final message = result.userMessage ??
+        (result.scheduledAny
+            ? '1 dakika sonrası için test bildirimi planlandı.'
+            : 'Test bildirimi planlanamadı.');
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        action: result.exactAlarmPermissionRequired
+            ? SnackBarAction(
+                label: 'Aç',
+                onPressed: () {
+                  _openExactAlarmSettings();
+                },
+              )
+            : null,
+      ),
+    );
+  }
+
   Future<void> _setThemeMode(ThemeMode themeMode) async {
     setState(() {
       _themeMode = themeMode;
@@ -89,6 +171,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   value: _notificationsEnabled,
                   onChanged: _setNotificationsEnabled,
                 ),
+                ListTile(
+                  leading: const Icon(Icons.notifications_active_outlined),
+                  title: const Text('Test bildirimi gönder'),
+                  onTap: _sendTestNotification,
+                ),
+                ListTile(
+                  leading: const Icon(Icons.notification_add_outlined),
+                  title: const Text('1 dakika sonra test bildirimi planla'),
+                  onTap: _scheduleTestNotificationAfterOneMinute,
+                ),
+                if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+                  ListTile(
+                    leading: const Icon(Icons.alarm_on_outlined),
+                    title: const Text('Kesin alarm iznini aç'),
+                    subtitle: const Text(
+                      'Android 12+ cihazlarda zamanında bildirim için gerekli.',
+                    ),
+                    onTap: _openExactAlarmSettings,
+                  ),
                 const Divider(height: 24),
                 const _SectionTitle(title: 'Bildirim süresi'),
                 RadioGroup<int>(

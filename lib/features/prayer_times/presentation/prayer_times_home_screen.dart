@@ -101,7 +101,7 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
         return;
       }
       setState(() {
-        _errorText = 'Veriler yüklenirken bir hata oluştu.';
+        _errorText = error.toString();
         _isLoading = false;
       });
     }
@@ -141,9 +141,19 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
         _homeScreenWidgetService.updatePrayerTimesWidgetFromSelectedCity(),
       );
 
-      final notificationSettings =
-          await _notificationSettingsService.readSettings();
-      await _applyNotificationSettings(dailyPrayerTimes, notificationSettings);
+      var notificationSettings = _notificationSettings;
+      NotificationScheduleResult? notificationScheduleResult;
+      try {
+        notificationSettings =
+            await _notificationSettingsService.readSettings();
+        notificationScheduleResult = await _applyNotificationSettings(
+          dailyPrayerTimes,
+          notificationSettings,
+        );
+      } catch (notificationError, stackTrace) {
+        debugPrint('Bildirim ayarlari uygulanirken hata: $notificationError');
+        debugPrintStack(stackTrace: stackTrace);
+      }
 
       if (!mounted) {
         return;
@@ -155,6 +165,7 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
         _notificationSettings = notificationSettings;
         _isLoading = false;
       });
+      _showExactAlarmPermissionMessageIfNeeded(notificationScheduleResult);
     } catch (error, stackTrace) {
       debugPrint('Şehir verisi yüklenirken hata: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -162,24 +173,37 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
         return;
       }
       setState(() {
-        _errorText = 'Veriler yüklenirken bir hata oluştu.';
+        _errorText = error.toString();
         _isLoading = false;
       });
     }
   }
 
-  Future<void> _applyNotificationSettings(
+  Future<NotificationScheduleResult?> _applyNotificationSettings(
     DailyPrayerTimes dailyPrayerTimes,
     NotificationSettings notificationSettings,
   ) async {
     if (!notificationSettings.notificationsEnabled) {
       await _notificationService.cancelPrayerReminders();
+      return null;
+    }
+
+    return _notificationService.schedulePrayerReminders(
+      dailyPrayerTimes,
+      minutesBefore: notificationSettings.minutesBefore,
+    );
+  }
+
+  void _showExactAlarmPermissionMessageIfNeeded(
+    NotificationScheduleResult? result,
+  ) {
+    final message = result?.userMessage;
+    if (message == null || !mounted) {
       return;
     }
 
-    await _notificationService.schedulePrayerReminders(
-      dailyPrayerTimes,
-      minutesBefore: notificationSettings.minutesBefore,
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 
@@ -237,7 +261,10 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
 
     final notificationSettings =
         await _notificationSettingsService.readSettings();
-    await _applyNotificationSettings(dailyPrayerTimes, notificationSettings);
+    final notificationScheduleResult = await _applyNotificationSettings(
+      dailyPrayerTimes,
+      notificationSettings,
+    );
 
     if (!mounted) {
       return;
@@ -246,6 +273,7 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
     setState(() {
       _notificationSettings = notificationSettings;
     });
+    _showExactAlarmPermissionMessageIfNeeded(notificationScheduleResult);
   }
 
   Future<void> _openQibla() async {
@@ -422,7 +450,7 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
     }
 
     if (_errorText != null) {
-      return Center(child: Text(_errorText!));
+      return Center(child: Text('Hata detayı: $_errorText'));
     }
 
     if (dailyPrayerTimes == null) {
