@@ -20,8 +20,12 @@ class NotificationService {
       'exact_alarms_not_permitted';
   static const String _prayerNotificationIdsPrefsKey =
       'prayer_reminder_notification_ids';
+  static const String _fridayNotificationIdsPrefsKey =
+      'friday_prayer_reminder_notification_ids';
   static const int _prayerNotificationIdBase = 100000;
   static const int _prayerNotificationIdRange = 100000;
+  static const int _fridayNotificationIdBase = 200000;
+  static const int _fridayNotificationIdRange = 100000;
   static const int _testNotificationIdBase = 900000;
   static const int _testNotificationIdRange = 100000;
 
@@ -30,6 +34,7 @@ class NotificationService {
 
   bool _isInitialized = false;
   Set<int> _scheduledPrayerNotificationIds = <int>{};
+  Set<int> _scheduledFridayNotificationIds = <int>{};
 
   Future<void> initialize() async {
     if (_isInitialized) {
@@ -62,6 +67,7 @@ class NotificationService {
   Future<NotificationScheduleResult> schedulePrayerReminders(
     DailyPrayerTimes dailyPrayerTimes, {
     required int minutesBefore,
+    int fridayReminderMinutesBefore = 0,
   }) async {
     if (kIsWeb) {
       return const NotificationScheduleResult(scheduledAny: false);
@@ -73,10 +79,13 @@ class NotificationService {
       }
 
       await _cancelTrackedPrayerReminderNotifications();
+      await _cancelTrackedFridayPrayerReminderNotifications();
       final now = DateTime.now();
       var scheduledNotificationCount = 0;
+      var scheduledFridayNotificationCount = 0;
       var exactAlarmPermissionRequired = false;
       final scheduledPrayerNotificationIds = <int>{};
+      final scheduledFridayNotificationIds = <int>{};
 
       for (final prayerTime in dailyPrayerTimes.prayerTimes) {
         final scheduledDate = prayerTime
@@ -121,9 +130,25 @@ class NotificationService {
       if (scheduledNotificationCount == 0) {
         debugPrint('Bugün için planlanacak bildirim kalmadı');
       }
+      final fridayScheduleResult = await _scheduleFridayPrayerReminderIfNeeded(
+        dailyPrayerTimes,
+        minutesBefore: fridayReminderMinutesBefore,
+      );
+      exactAlarmPermissionRequired =
+          exactAlarmPermissionRequired ||
+              fridayScheduleResult.exactAlarmPermissionRequired;
+      if (fridayScheduleResult.notificationId != null) {
+        scheduledFridayNotificationIds.add(fridayScheduleResult.notificationId!);
+      }
+      if (fridayScheduleResult.scheduled) {
+        scheduledFridayNotificationCount++;
+      }
+
       await _saveTrackedPrayerNotificationIds(scheduledPrayerNotificationIds);
+      await _saveTrackedFridayNotificationIds(scheduledFridayNotificationIds);
       return NotificationScheduleResult(
-        scheduledAny: scheduledNotificationCount > 0,
+        scheduledAny:
+            scheduledNotificationCount > 0 || scheduledFridayNotificationCount > 0,
         exactAlarmPermissionRequired: exactAlarmPermissionRequired,
       );
     } catch (error, stackTrace) {
@@ -146,6 +171,7 @@ class NotificationService {
     }
 
     await _cancelTrackedPrayerReminderNotifications();
+    await _cancelTrackedFridayPrayerReminderNotifications();
   }
 
   Future<void> showTestNotification() async {
@@ -372,6 +398,161 @@ class NotificationService {
     );
   }
 
+  Future<_FridayScheduleResult> _scheduleFridayPrayerReminderIfNeeded(
+    DailyPrayerTimes dailyPrayerTimes, {
+    required int minutesBefore,
+  }) async {
+    if (minutesBefore <= 0) {
+      debugPrint('Cuma hatırlatması planlanmadı: ayar kapalı.');
+      return const _FridayScheduleResult(scheduled: false);
+    }
+
+    if (minutesBefore != 15 && minutesBefore != 30 && minutesBefore != 60) {
+      debugPrint(
+        'Cuma hatırlatması planlanmadı: geçersiz süre. '
+        'dakika=$minutesBefore',
+      );
+      return const _FridayScheduleResult(scheduled: false);
+    }
+
+    if (dailyPrayerTimes.date.weekday != DateTime.friday) {
+      debugPrint(
+        'Cuma hatırlatması planlanmadı: bugün Cuma değil. '
+        'tarih=${dailyPrayerTimes.date}',
+      );
+      return const _FridayScheduleResult(scheduled: false);
+    }
+
+    final dhuhrPrayerTime = _findPrayerTimeByName(dailyPrayerTimes, 'Öğle');
+    if (dhuhrPrayerTime == null) {
+      debugPrint('Cuma hatırlatması planlanmadı: Öğle vakti bulunamadı.');
+      return const _FridayScheduleResult(scheduled: false);
+    }
+
+    final scheduledDate = dhuhrPrayerTime
+        .dateTimeOn(dailyPrayerTimes.date)
+        .subtract(Duration(minutes: minutesBefore));
+    if (scheduledDate.isBefore(DateTime.now())) {
+      debugPrint(
+        'Cuma hatırlatması planlanmadı: bildirim zamanı geçti. '
+        'cuma saati=${dhuhrPrayerTime.formattedTime}, '
+        'bildirim zamanı=$scheduledDate',
+      );
+      return const _FridayScheduleResult(scheduled: false);
+    }
+
+    final notificationId = _fridayNotificationId(
+      dailyPrayerTimes.city,
+      dailyPrayerTimes.date,
+    );
+    final notificationDate = tz.TZDateTime.from(scheduledDate, tz.local);
+    final attempt = await _scheduleFridayPrayerReminderWithFallback(
+      notificationId: notificationId,
+      notificationDate: notificationDate,
+      minutesBefore: minutesBefore,
+    );
+
+    if (attempt.scheduled) {
+      debugPrint(
+        'Cuma hatırlatması planlandı: '
+        'şehir=${dailyPrayerTimes.city}, '
+        'cuma saati=${dhuhrPrayerTime.formattedTime}, '
+        'bildirim zamanı=$notificationDate, '
+        'notification id=$notificationId',
+      );
+    } else {
+      debugPrint(
+        'Cuma hatırlatması planlanmadı: bildirim planlama başarısız. '
+        'notification id=$notificationId',
+      );
+    }
+
+    return _FridayScheduleResult(
+      scheduled: attempt.scheduled,
+      exactAlarmPermissionRequired: attempt.exactAlarmPermissionRequired,
+      notificationId: attempt.scheduled ? notificationId : null,
+    );
+  }
+
+  Future<_ScheduleAttempt> _scheduleFridayPrayerReminderWithFallback({
+    required int notificationId,
+    required tz.TZDateTime notificationDate,
+    required int minutesBefore,
+  }) async {
+    var exactAlarmPermissionRequired = false;
+
+    try {
+      await _scheduleFridayPrayerReminder(
+        notificationId: notificationId,
+        notificationDate: notificationDate,
+        minutesBefore: minutesBefore,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      );
+      return const _ScheduleAttempt(scheduled: true);
+    } catch (error, stackTrace) {
+      exactAlarmPermissionRequired = _isExactAlarmPermissionError(error);
+      if (exactAlarmPermissionRequired) {
+        debugPrint(exactAlarmPermissionMessage);
+      }
+      debugPrint(
+        'Cuma hatırlatması exact ile planlanamadı, inexact deneniyor: '
+        'id=$notificationId, hata=$error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+    }
+
+    try {
+      await _scheduleFridayPrayerReminder(
+        notificationId: notificationId,
+        notificationDate: notificationDate,
+        minutesBefore: minutesBefore,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      );
+      return _ScheduleAttempt(
+        scheduled: true,
+        exactAlarmPermissionRequired: exactAlarmPermissionRequired,
+      );
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Cuma hatırlatması inexact ile de planlanamadı: '
+        'id=$notificationId, hata=$error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      return _ScheduleAttempt(
+        scheduled: false,
+        exactAlarmPermissionRequired:
+            exactAlarmPermissionRequired || _isExactAlarmPermissionError(error),
+      );
+    }
+  }
+
+  Future<void> _scheduleFridayPrayerReminder({
+    required int notificationId,
+    required tz.TZDateTime notificationDate,
+    required int minutesBefore,
+    required AndroidScheduleMode androidScheduleMode,
+  }) {
+    return _plugin.zonedSchedule(
+      notificationId,
+      '🕌 Cuma Namazı',
+      'Cuma namazına $minutesBefore dakika kaldı.',
+      notificationDate,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'prayer_reminders',
+          'Namaz Hatırlatmaları',
+          channelDescription: 'Namaz vakitlerinden önce uyarı gönderir.',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(),
+      ),
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      androidScheduleMode: androidScheduleMode,
+    );
+  }
+
   Future<_ScheduleAttempt> _scheduleTestNotificationWithFallback({
     required int notificationId,
     required tz.TZDateTime notificationDate,
@@ -507,11 +688,57 @@ class NotificationService {
     await _saveTrackedPrayerNotificationIds(<int>{});
   }
 
+  Future<void> _cancelTrackedFridayPrayerReminderNotifications() async {
+    final notificationIds = await _readTrackedFridayNotificationIds();
+    if (notificationIds.isEmpty) {
+      debugPrint('İptal edilecek Cuma hatırlatma bildirimi yok.');
+      return;
+    }
+
+    debugPrint(
+      'Cuma hatırlatma bildirimleri iptal ediliyor: '
+      '${notificationIds.length} kayıt.',
+    );
+
+    for (final notificationId in notificationIds) {
+      try {
+        await _plugin.cancel(notificationId);
+        debugPrint(
+          'Cuma hatırlatma bildirimi iptal edildi: id=$notificationId',
+        );
+      } catch (error, stackTrace) {
+        debugPrint(
+          'Cuma hatırlatma bildirimi iptal edilemedi: '
+          'id=$notificationId, hata=$error',
+        );
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }
+
+    await _saveTrackedFridayNotificationIds(<int>{});
+  }
+
   Future<Set<int>> _readTrackedPrayerNotificationIds() async {
     final prefs = await SharedPreferences.getInstance();
     final storedIds =
         prefs.getStringList(_prayerNotificationIdsPrefsKey) ?? <String>[];
     final notificationIds = <int>{..._scheduledPrayerNotificationIds};
+
+    for (final storedId in storedIds) {
+      final notificationId = int.tryParse(storedId);
+      if (notificationId != null) {
+        notificationIds.add(notificationId);
+      }
+    }
+
+    return notificationIds;
+  }
+
+  Future<Set<int>> _readTrackedFridayNotificationIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedIds =
+        prefs.getStringList(_fridayNotificationIdsPrefsKey) ?? <String>[];
+    final notificationIds = <int>{..._scheduledFridayNotificationIds};
 
     for (final storedId in storedIds) {
       final notificationId = int.tryParse(storedId);
@@ -541,12 +768,50 @@ class NotificationService {
     );
   }
 
+  Future<void> _saveTrackedFridayNotificationIds(
+    Set<int> notificationIds,
+  ) async {
+    _scheduledFridayNotificationIds = <int>{...notificationIds};
+
+    final prefs = await SharedPreferences.getInstance();
+    if (notificationIds.isEmpty) {
+      await prefs.remove(_fridayNotificationIdsPrefsKey);
+      return;
+    }
+
+    await prefs.setStringList(
+      _fridayNotificationIdsPrefsKey,
+      notificationIds.map((notificationId) => notificationId.toString()).toList()
+        ..sort(),
+    );
+  }
+
   int _notificationId(String city, PrayerTime prayerTime) {
     final hash =
         '${city}_${prayerTime.name}_${prayerTime.hour}_${prayerTime.minute}'
                 .hashCode &
             0x7fffffff;
     return _prayerNotificationIdBase + hash % _prayerNotificationIdRange;
+  }
+
+  int _fridayNotificationId(String city, DateTime date) {
+    final hash = '${city}_friday_${date.year}_${date.month}_${date.day}'
+            .hashCode &
+        0x7fffffff;
+    return _fridayNotificationIdBase + hash % _fridayNotificationIdRange;
+  }
+
+  PrayerTime? _findPrayerTimeByName(
+    DailyPrayerTimes dailyPrayerTimes,
+    String prayerName,
+  ) {
+    for (final prayerTime in dailyPrayerTimes.prayerTimes) {
+      if (prayerTime.name == prayerName) {
+        return prayerTime;
+      }
+    }
+
+    return null;
   }
 
   int _nextTestNotificationId() {
@@ -591,4 +856,16 @@ class _ScheduleAttempt {
 
   final bool scheduled;
   final bool exactAlarmPermissionRequired;
+}
+
+class _FridayScheduleResult {
+  const _FridayScheduleResult({
+    required this.scheduled,
+    this.exactAlarmPermissionRequired = false,
+    this.notificationId,
+  });
+
+  final bool scheduled;
+  final bool exactAlarmPermissionRequired;
+  final int? notificationId;
 }

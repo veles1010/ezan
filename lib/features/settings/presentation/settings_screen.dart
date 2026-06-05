@@ -24,6 +24,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled =
       NotificationSettings.defaults.notificationsEnabled;
   int _minutesBefore = NotificationSettings.defaults.minutesBefore;
+  int _fridayReminderMinutesBefore =
+      NotificationSettings.defaults.fridayReminderMinutesBefore;
   ThemeMode _themeMode = ThemeMode.system;
 
   @override
@@ -42,6 +44,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _notificationsEnabled = settings.notificationsEnabled;
       _minutesBefore = settings.minutesBefore;
+      _fridayReminderMinutesBefore = settings.fridayReminderMinutesBefore;
       _themeMode = themeMode;
       _isLoading = false;
     });
@@ -59,6 +62,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _minutesBefore = minutesBefore;
     });
     await _settingsService.saveMinutesBefore(minutesBefore);
+  }
+
+  Future<void> _setFridayReminderMinutesBefore(int minutesBefore) async {
+    setState(() {
+      _fridayReminderMinutesBefore = minutesBefore;
+    });
+    await _settingsService.saveFridayReminderMinutesBefore(minutesBefore);
   }
 
   Future<void> _sendTestNotification() async {
@@ -213,6 +223,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const Divider(height: 24),
+                const _SectionTitle(title: 'Cuma Hatırlatmaları'),
+                RadioGroup<int>(
+                  groupValue: _fridayReminderMinutesBefore,
+                  onChanged: (value) {
+                    if (value == null) {
+                      return;
+                    }
+                    _setFridayReminderMinutesBefore(value);
+                  },
+                  child: Column(
+                    children: [
+                      for (final minutes in NotificationSettings
+                          .allowedFridayReminderMinutes)
+                        RadioListTile<int>(
+                          title: Text(_fridayReminderTitle(minutes)),
+                          value: minutes,
+                          selected: minutes == _fridayReminderMinutesBefore,
+                        ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 24),
                 const _SectionTitle(title: 'Tema'),
                 RadioGroup<ThemeMode>(
                   groupValue: _themeMode,
@@ -253,6 +285,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
     );
   }
+}
+
+String _fridayReminderTitle(int minutesBefore) {
+  if (minutesBefore == NotificationSettings.fridayReminderOff) {
+    return 'Kapalı';
+  }
+
+  return '$minutesBefore dakika önce';
 }
 
 class _SectionTitle extends StatelessWidget {

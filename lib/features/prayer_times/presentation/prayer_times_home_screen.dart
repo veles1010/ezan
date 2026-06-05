@@ -184,6 +184,9 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
     NotificationSettings notificationSettings,
   ) async {
     if (!notificationSettings.notificationsEnabled) {
+      debugPrint(
+        'Bildirimler kapalı: namaz ve Cuma hatırlatmaları planlanmadı.',
+      );
       await _notificationService.cancelPrayerReminders();
       return null;
     }
@@ -191,6 +194,8 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
     return _notificationService.schedulePrayerReminders(
       dailyPrayerTimes,
       minutesBefore: notificationSettings.minutesBefore,
+      fridayReminderMinutesBefore:
+          notificationSettings.fridayReminderMinutesBefore,
     );
   }
 
