@@ -16,6 +16,7 @@ import '../../../data/services/notification_settings_service.dart';
 import '../../../data/services/selected_city_service.dart';
 import '../../../data/turkey_cities_districts.dart';
 import '../../city_selection/presentation/city_selection_screen.dart';
+import '../../friday/presentation/friday_screen.dart';
 import '../../prayer_calendar/presentation/prayer_calendar_screen.dart';
 import '../../qibla/presentation/qibla_screen.dart';
 import '../../ramadan/presentation/ramadan_screen.dart';
@@ -287,6 +288,29 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
     );
   }
 
+  Future<void> _openFriday() async {
+    final dailyPrayerTimes = _dailyPrayerTimes;
+    if (dailyPrayerTimes == null) {
+      return;
+    }
+
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => FridayScreen(dailyPrayerTimes: dailyPrayerTimes),
+      ),
+    );
+
+    final notificationSettings =
+        await _notificationSettingsService.readSettings();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _notificationSettings = notificationSettings;
+    });
+  }
+
   Future<void> _openPrayerCalendar() async {
     final city = _selectedCity ?? _dailyPrayerTimes?.city;
     if (city == null) {
@@ -419,6 +443,7 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
             onCurrentLocationPressed: _goToCurrentLocation,
             onQiblaPressed: _openQibla,
             onPrayerCalendarPressed: _openPrayerCalendar,
+            onFridayPressed: _openFriday,
             onRamadanPressed: _openRamadan,
             onSharePressed: _shareTodayPrayerTimes,
           ),
@@ -667,6 +692,7 @@ class _QuickActionMenu extends StatelessWidget {
     required this.onCurrentLocationPressed,
     required this.onQiblaPressed,
     required this.onPrayerCalendarPressed,
+    required this.onFridayPressed,
     required this.onRamadanPressed,
     required this.onSharePressed,
   });
@@ -675,6 +701,7 @@ class _QuickActionMenu extends StatelessWidget {
   final VoidCallback onCurrentLocationPressed;
   final VoidCallback onQiblaPressed;
   final VoidCallback onPrayerCalendarPressed;
+  final VoidCallback onFridayPressed;
   final VoidCallback onRamadanPressed;
   final VoidCallback onSharePressed;
 
@@ -716,6 +743,13 @@ class _QuickActionMenu extends StatelessWidget {
                   label: 'Takvim',
                   icon: Icons.calendar_month,
                   onPressed: onPrayerCalendarPressed,
+                ),
+              ),
+              Expanded(
+                child: _QuickActionButton(
+                  label: 'Cuma',
+                  icon: Icons.event_available,
+                  onPressed: onFridayPressed,
                 ),
               ),
               Expanded(
