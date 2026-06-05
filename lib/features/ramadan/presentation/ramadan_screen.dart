@@ -131,7 +131,7 @@ class _RamadanDayCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _RamadanTimeLine(label: 'İmsak', time: day.imsak),
-            _RamadanTimeLine(label: 'Akşam', time: day.aksam),
+            _RamadanTimeLine(label: 'İftar', time: day.aksam),
           ],
         ),
       ),

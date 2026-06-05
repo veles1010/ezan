@@ -31,7 +31,9 @@ class _CitySelectionScreenState extends State<CitySelectionScreen> {
   List<TurkeyProvince> get _filteredProvinces {
     final query = normalizeTurkeyLocationText(_query);
     final sortedProvinces = List<TurkeyProvince>.from(turkeyProvinces)
-      ..sort((first, second) => first.name.compareTo(second.name));
+      ..sort(
+        (first, second) => compareTurkeyLocationText(first.name, second.name),
+      );
     if (query.isEmpty) {
       return sortedProvinces;
     }
@@ -64,7 +66,10 @@ class _CitySelectionScreenState extends State<CitySelectionScreen> {
 
     return favoritePlaces.values.toList()
       ..sort(
-        (first, second) => first.displayName.compareTo(second.displayName),
+        (first, second) => compareTurkeyLocationText(
+          first.displayName,
+          second.displayName,
+        ),
       );
   }
 
@@ -75,7 +80,8 @@ class _CitySelectionScreenState extends State<CitySelectionScreen> {
     }
 
     final query = normalizeTurkeyLocationText(_query);
-    final sortedDistricts = List<String>.from(province.districts)..sort();
+    final sortedDistricts = List<String>.from(province.districts)
+      ..sort(compareTurkeyLocationText);
     if (query.isEmpty) {
       return sortedDistricts;
     }

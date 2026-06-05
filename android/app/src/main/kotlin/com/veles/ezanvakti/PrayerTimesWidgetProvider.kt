@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetProvider
-import java.util.Locale
 
 class PrayerTimesWidgetProvider : HomeWidgetProvider() {
     override fun onUpdate(
@@ -23,7 +22,7 @@ class PrayerTimesWidgetProvider : HomeWidgetProvider() {
                     R.id.widget_next_prayer_line,
                     "${state.nextPrayerName} ${state.nextPrayerTime}"
                 )
-                setTextViewText(R.id.widget_remaining_time, "Kalan ${state.remainingTime}")
+                setTextViewText(R.id.widget_remaining_time, state.remainingTime)
             }
 
             appWidgetManager.updateAppWidget(widgetId, views)
@@ -87,14 +86,28 @@ class PrayerTimesWidgetProvider : HomeWidgetProvider() {
     }
 
     private fun formatRemainingTime(remainingMillis: Long): String {
-        if (remainingMillis <= 0L) {
-            return DEFAULT_REMAINING_TIME
+        if (remainingMillis < MILLIS_IN_MINUTE) {
+            return TIME_ENTERED_TEXT
         }
 
         val totalMinutes = remainingMillis / MILLIS_IN_MINUTE
         val hours = totalMinutes / MINUTES_IN_HOUR
         val minutes = totalMinutes % MINUTES_IN_HOUR
-        return String.format(Locale.US, "%02d:%02d", hours, minutes)
+        val fullText = if (hours > 0L) {
+            "$hours saat $minutes dakika kaldı"
+        } else {
+            "$minutes dakika kaldı"
+        }
+
+        if (fullText.length <= MAX_REMAINING_TEXT_LENGTH) {
+            return fullText
+        }
+
+        return if (hours > 0L) {
+            "${hours}s ${minutes}dk kaldı"
+        } else {
+            "${minutes}dk kaldı"
+        }
     }
 
     private fun safeWidgetState(cityName: String = DEFAULT_CITY_NAME): WidgetState {
@@ -116,10 +129,12 @@ class PrayerTimesWidgetProvider : HomeWidgetProvider() {
         private const val SCHEDULE_PART_SEPARATOR = "|"
         private const val MILLIS_IN_MINUTE = 60000L
         private const val MINUTES_IN_HOUR = 60L
+        private const val MAX_REMAINING_TEXT_LENGTH = 16
         private const val DEFAULT_CITY_NAME = "Ezan Vakti"
         private const val DEFAULT_NEXT_PRAYER_NAME = "--"
         private const val DEFAULT_NEXT_PRAYER_TIME = "--:--"
-        private const val DEFAULT_REMAINING_TIME = "--:--"
+        private const val DEFAULT_REMAINING_TIME = "--"
+        private const val TIME_ENTERED_TEXT = "Vakit girdi"
     }
 }
 

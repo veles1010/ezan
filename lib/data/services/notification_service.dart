@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -17,11 +18,18 @@ class NotificationService {
       'açmanız gerekiyor.';
   static const String _exactAlarmPermissionErrorCode =
       'exact_alarms_not_permitted';
+  static const String _prayerNotificationIdsPrefsKey =
+      'prayer_reminder_notification_ids';
+  static const int _prayerNotificationIdBase = 100000;
+  static const int _prayerNotificationIdRange = 100000;
+  static const int _testNotificationIdBase = 900000;
+  static const int _testNotificationIdRange = 100000;
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
   bool _isInitialized = false;
+  Set<int> _scheduledPrayerNotificationIds = <int>{};
 
   Future<void> initialize() async {
     if (_isInitialized) {
@@ -64,14 +72,11 @@ class NotificationService {
         await initialize();
       }
 
-      debugPrint(
-        'Namaz hatırlatma bildirimleri iptal ediliyor: '
-        'cancelAll() çağrılıyor.',
-      );
-      await _plugin.cancelAll();
+      await _cancelTrackedPrayerReminderNotifications();
       final now = DateTime.now();
       var scheduledNotificationCount = 0;
       var exactAlarmPermissionRequired = false;
+      final scheduledPrayerNotificationIds = <int>{};
 
       for (final prayerTime in dailyPrayerTimes.prayerTimes) {
         final scheduledDate = prayerTime
@@ -102,6 +107,7 @@ class NotificationService {
           continue;
         }
 
+        scheduledPrayerNotificationIds.add(notificationId);
         scheduledNotificationCount++;
         debugPrint(
           'Bildirim planlandı: '
@@ -115,6 +121,7 @@ class NotificationService {
       if (scheduledNotificationCount == 0) {
         debugPrint('Bugün için planlanacak bildirim kalmadı');
       }
+      await _saveTrackedPrayerNotificationIds(scheduledPrayerNotificationIds);
       return NotificationScheduleResult(
         scheduledAny: scheduledNotificationCount > 0,
         exactAlarmPermissionRequired: exactAlarmPermissionRequired,
@@ -138,11 +145,7 @@ class NotificationService {
       await initialize();
     }
 
-    debugPrint(
-      'Namaz hatırlatma bildirimleri iptal ediliyor: '
-      'cancelAll() çağrılıyor.',
-    );
-    await _plugin.cancelAll();
+    await _cancelTrackedPrayerReminderNotifications();
   }
 
   Future<void> showTestNotification() async {
@@ -156,7 +159,7 @@ class NotificationService {
       }
 
       await _plugin.show(
-        DateTime.now().millisecondsSinceEpoch & 0x7fffffff,
+        _nextTestNotificationId(),
         'Ezan Vakti Test',
         'Bildirim sistemi çalışıyor.',
         const NotificationDetails(
@@ -230,8 +233,7 @@ class NotificationService {
       }
       await _prepareLocalTimezone();
 
-      final notificationId =
-          DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
+      final notificationId = _nextTestNotificationId();
       final notificationDate =
           tz.TZDateTime.now(tz.local).add(const Duration(minutes: 1));
 
@@ -475,10 +477,81 @@ class NotificationService {
     }
   }
 
+  Future<void> _cancelTrackedPrayerReminderNotifications() async {
+    final notificationIds = await _readTrackedPrayerNotificationIds();
+    if (notificationIds.isEmpty) {
+      debugPrint('İptal edilecek namaz hatırlatma bildirimi yok.');
+      return;
+    }
+
+    debugPrint(
+      'Namaz hatırlatma bildirimleri iptal ediliyor: '
+      '${notificationIds.length} kayıt.',
+    );
+
+    for (final notificationId in notificationIds) {
+      try {
+        await _plugin.cancel(notificationId);
+        debugPrint(
+          'Namaz hatırlatma bildirimi iptal edildi: id=$notificationId',
+        );
+      } catch (error, stackTrace) {
+        debugPrint(
+          'Namaz hatırlatma bildirimi iptal edilemedi: '
+          'id=$notificationId, hata=$error',
+        );
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }
+
+    await _saveTrackedPrayerNotificationIds(<int>{});
+  }
+
+  Future<Set<int>> _readTrackedPrayerNotificationIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedIds =
+        prefs.getStringList(_prayerNotificationIdsPrefsKey) ?? <String>[];
+    final notificationIds = <int>{..._scheduledPrayerNotificationIds};
+
+    for (final storedId in storedIds) {
+      final notificationId = int.tryParse(storedId);
+      if (notificationId != null) {
+        notificationIds.add(notificationId);
+      }
+    }
+
+    return notificationIds;
+  }
+
+  Future<void> _saveTrackedPrayerNotificationIds(
+    Set<int> notificationIds,
+  ) async {
+    _scheduledPrayerNotificationIds = <int>{...notificationIds};
+
+    final prefs = await SharedPreferences.getInstance();
+    if (notificationIds.isEmpty) {
+      await prefs.remove(_prayerNotificationIdsPrefsKey);
+      return;
+    }
+
+    await prefs.setStringList(
+      _prayerNotificationIdsPrefsKey,
+      notificationIds.map((notificationId) => notificationId.toString()).toList()
+        ..sort(),
+    );
+  }
+
   int _notificationId(String city, PrayerTime prayerTime) {
-    return '${city}_${prayerTime.name}_${prayerTime.hour}_${prayerTime.minute}'
-            .hashCode &
-        0x7fffffff;
+    final hash =
+        '${city}_${prayerTime.name}_${prayerTime.hour}_${prayerTime.minute}'
+                .hashCode &
+            0x7fffffff;
+    return _prayerNotificationIdBase + hash % _prayerNotificationIdRange;
+  }
+
+  int _nextTestNotificationId() {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    return _testNotificationIdBase + timestamp % _testNotificationIdRange;
   }
 
   bool get _isAndroidPlatform {

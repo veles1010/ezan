@@ -388,41 +388,18 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final dailyPrayerTimes = _dailyPrayerTimes;
+    final appBarDate = dailyPrayerTimes?.date ?? DateTime.now();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ezan Vakitleri'),
+        toolbarHeight: 96,
+        titleSpacing: 16,
+        centerTitle: false,
+        title: _HomeAppBarTitle(
+          dateText: _formatAppBarDate(appBarDate),
+          hijriDateText: dailyPrayerTimes?.hijriDateText,
+        ),
         actions: [
-          IconButton(
-            tooltip: 'Şehir seç',
-            onPressed: _openCitySelection,
-            icon: const Icon(Icons.location_city),
-          ),
-          IconButton(
-            tooltip: 'Konumuma git',
-            onPressed: _goToCurrentLocation,
-            icon: const Icon(Icons.my_location),
-          ),
-          IconButton(
-            tooltip: 'Kıble',
-            onPressed: _openQibla,
-            icon: const Icon(Icons.explore),
-          ),
-          IconButton(
-            tooltip: 'Takvim',
-            onPressed: _openPrayerCalendar,
-            icon: const Icon(Icons.calendar_month),
-          ),
-          IconButton(
-            tooltip: 'Ramazan',
-            onPressed: _openRamadan,
-            icon: const Icon(Icons.nightlight_round),
-          ),
-          IconButton(
-            tooltip: 'Paylaş',
-            onPressed: _shareTodayPrayerTimes,
-            icon: const Icon(Icons.share),
-          ),
           IconButton(
             tooltip: 'Ayarlar',
             onPressed: _openSettings,
@@ -432,6 +409,14 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
       ),
       body: Column(
         children: [
+          _QuickActionMenu(
+            onCitySelectionPressed: _openCitySelection,
+            onCurrentLocationPressed: _goToCurrentLocation,
+            onQiblaPressed: _openQibla,
+            onPrayerCalendarPressed: _openPrayerCalendar,
+            onRamadanPressed: _openRamadan,
+            onSharePressed: _shareTodayPrayerTimes,
+          ),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -465,18 +450,12 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
       children: [
         _HeaderCard(
           city: dailyPrayerTimes.city,
-          dateText: _formatDate(dailyPrayerTimes.date),
-          hijriDateText: dailyPrayerTimes.hijriDateText,
           nextPrayerText: nextPrayer == null
               ? 'Bugün için vakit bulunamadı'
               : '${nextPrayer.name} - ${nextPrayer.formattedTime}',
           remainingTimeText: nextPrayerInfo == null
-              ? '--:--:--'
+              ? 'Vakit bulunamadı'
               : _formatRemainingTime(nextPrayerInfo.dateTime),
-          notificationText: _notificationSettings.notificationsEnabled
-              ? 'Her vakitten ${_notificationSettings.minutesBefore} dakika '
-                  'önce bildirim planlanır.'
-              : 'Bildirimler kapalı.',
         ),
         const SizedBox(height: 16),
         Text(
@@ -524,11 +503,47 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
 
   String _formatRemainingTime(DateTime targetDateTime) {
     final remaining = targetDateTime.difference(DateTime.now());
-    final safeRemaining = remaining.isNegative ? Duration.zero : remaining;
-    final hours = safeRemaining.inHours;
-    final minutes = safeRemaining.inMinutes.remainder(60);
-    final seconds = safeRemaining.inSeconds.remainder(60);
-    return '${_twoDigits(hours)}:${_twoDigits(minutes)}:${_twoDigits(seconds)}';
+    if (remaining.inMinutes < 1) {
+      return 'Vakit girdi';
+    }
+
+    final hours = remaining.inHours;
+    final minutes = remaining.inMinutes.remainder(60);
+    if (hours > 0) {
+      return '$hours saat $minutes dakika kaldı';
+    }
+
+    return '$minutes dakika kaldı';
+  }
+
+  String _formatAppBarDate(DateTime date) {
+    const weekdays = <String>[
+      'Pazartesi',
+      'Salı',
+      'Çarşamba',
+      'Perşembe',
+      'Cuma',
+      'Cumartesi',
+      'Pazar',
+    ];
+    const months = <String>[
+      'Ocak',
+      'Şubat',
+      'Mart',
+      'Nisan',
+      'Mayıs',
+      'Haziran',
+      'Temmuz',
+      'Ağustos',
+      'Eylül',
+      'Ekim',
+      'Kasım',
+      'Aralık',
+    ];
+
+    final weekday = weekdays[date.weekday - 1];
+    final month = months[date.month - 1];
+    return '${date.day} $month $weekday';
   }
 
   String _formatDate(DateTime date) {
@@ -576,98 +591,309 @@ class _NextPrayerInfo {
   final DateTime dateTime;
 }
 
-class _HeaderCard extends StatelessWidget {
-  const _HeaderCard({
-    required this.city,
+class _HomeAppBarTitle extends StatelessWidget {
+  const _HomeAppBarTitle({
     required this.dateText,
     required this.hijriDateText,
-    required this.nextPrayerText,
-    required this.remainingTimeText,
-    required this.notificationText,
   });
 
-  final String city;
   final String dateText;
   final String? hijriDateText;
-  final String nextPrayerText;
-  final String remainingTimeText;
-  final String notificationText;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Card(
-      color: colorScheme.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              city,
-              style: textTheme.headlineSmall?.copyWith(
-                color: colorScheme.onPrimaryContainer,
-                fontWeight: FontWeight.w700,
+    return Row(
+      children: [
+        Expanded(
+          flex: 5,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Ezan Vakti',
+              maxLines: 1,
+              style: textTheme.headlineLarge?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              dateText,
-              style: textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onPrimaryContainer,
-              ),
-            ),
-            if (hijriDateText != null && hijriDateText!.isNotEmpty) ...[
-              const SizedBox(height: 2),
+          ),
+        ),
+        const SizedBox(width: 14),
+        Flexible(
+          flex: 4,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                hijriDateText!,
+                dateText,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onPrimaryContainer,
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                hijriDateText ?? '',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
-            const SizedBox(height: 14),
-            Text(
-              'Sıradaki vakit',
-              style: textTheme.labelLarge?.copyWith(
-                color: colorScheme.onPrimaryContainer,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickActionMenu extends StatelessWidget {
+  const _QuickActionMenu({
+    required this.onCitySelectionPressed,
+    required this.onCurrentLocationPressed,
+    required this.onQiblaPressed,
+    required this.onPrayerCalendarPressed,
+    required this.onRamadanPressed,
+    required this.onSharePressed,
+  });
+
+  final VoidCallback onCitySelectionPressed;
+  final VoidCallback onCurrentLocationPressed;
+  final VoidCallback onQiblaPressed;
+  final VoidCallback onPrayerCalendarPressed;
+  final VoidCallback onRamadanPressed;
+  final VoidCallback onSharePressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Material(
+      color: colorScheme.surface,
+      child: SizedBox(
+        height: 70,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: _QuickActionButton(
+                  label: 'Şehir Seç',
+                  icon: Icons.location_city,
+                  onPressed: onCitySelectionPressed,
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              nextPrayerText,
-              style: textTheme.titleMedium?.copyWith(
-                color: colorScheme.onPrimaryContainer,
-                fontWeight: FontWeight.w600,
+              Expanded(
+                child: _QuickActionButton(
+                  label: 'Konumum',
+                  icon: Icons.my_location,
+                  onPressed: onCurrentLocationPressed,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Kalan süre',
-              style: textTheme.labelLarge?.copyWith(
-                color: colorScheme.onPrimaryContainer,
+              Expanded(
+                child: _QuickActionButton(
+                  label: 'Kıble',
+                  icon: Icons.explore,
+                  onPressed: onQiblaPressed,
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              remainingTimeText,
-              style: textTheme.titleMedium?.copyWith(
-                color: colorScheme.onPrimaryContainer,
-                fontWeight: FontWeight.w600,
+              Expanded(
+                child: _QuickActionButton(
+                  label: 'Takvim',
+                  icon: Icons.calendar_month,
+                  onPressed: onPrayerCalendarPressed,
+                ),
               ),
+              Expanded(
+                child: _QuickActionButton(
+                  label: 'Ramazan',
+                  icon: Icons.nightlight_round,
+                  onPressed: onRamadanPressed,
+                ),
+              ),
+              Expanded(
+                child: _QuickActionButton(
+                  label: 'Paylaş',
+                  icon: Icons.share,
+                  onPressed: onSharePressed,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickActionButton extends StatelessWidget {
+  const _QuickActionButton({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: onPressed,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 21,
+              color: colorScheme.onSurfaceVariant,
             ),
-            const SizedBox(height: 12),
-            Text(
-              notificationText,
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onPrimaryContainer,
+            const SizedBox(height: 3),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _HeaderCard extends StatelessWidget {
+  const _HeaderCard({
+    required this.city,
+    required this.nextPrayerText,
+    required this.remainingTimeText,
+  });
+
+  final String city;
+  final String nextPrayerText;
+  final String remainingTimeText;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return SizedBox(
+      width: double.infinity,
+      child: Card(
+        color: colorScheme.primaryContainer,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                city,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.headlineSmall?.copyWith(
+                  color: colorScheme.onPrimaryContainer,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 12),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final nextPrayerColumn = _HeaderCardInfoColumn(
+                    label: 'Sıradaki vakit',
+                    value: nextPrayerText,
+                  );
+                  final remainingTimeColumn = _HeaderCardInfoColumn(
+                    label: 'Kalan süre',
+                    value: remainingTimeText,
+                  );
+
+                  if (constraints.maxWidth < 280) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        nextPrayerColumn,
+                        const SizedBox(height: 10),
+                        remainingTimeColumn,
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: nextPrayerColumn),
+                      const SizedBox(width: 12),
+                      Expanded(child: remainingTimeColumn),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderCardInfoColumn extends StatelessWidget {
+  const _HeaderCardInfoColumn({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: textTheme.labelLarge?.copyWith(
+            color: colorScheme.onPrimaryContainer,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: textTheme.titleMedium?.copyWith(
+            color: colorScheme.onPrimaryContainer,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1457,9 +1457,31 @@ const List<TurkeyProvince> turkeyProvinces = <TurkeyProvince>[
 ];
 
 List<String> get turkeyProvinceNames {
+  final provinceNames = turkeyProvinces.map((province) => province.name).toList()
+    ..sort(compareTurkeyLocationText);
   return List<String>.unmodifiable(
-    turkeyProvinces.map((province) => province.name),
+    provinceNames,
   );
+}
+
+int compareTurkeyLocationText(String first, String second) {
+  final firstRunes = first.runes.toList();
+  final secondRunes = second.runes.toList();
+  final shortestLength =
+      firstRunes.length < secondRunes.length ? firstRunes.length : secondRunes.length;
+
+  for (var index = 0; index < shortestLength; index++) {
+    final firstCharacter = String.fromCharCode(firstRunes[index]);
+    final secondCharacter = String.fromCharCode(secondRunes[index]);
+    final firstRank = _turkishSortRank(firstCharacter);
+    final secondRank = _turkishSortRank(secondCharacter);
+
+    if (firstRank != secondRank) {
+      return firstRank.compareTo(secondRank);
+    }
+  }
+
+  return firstRunes.length.compareTo(secondRunes.length);
 }
 
 TurkeyProvince? findTurkeyProvince(String provinceName) {
@@ -1519,4 +1541,98 @@ String? _findDistrictName(String provinceName, String districtName) {
   }
 
   return null;
+}
+
+int _turkishSortRank(String character) {
+  switch (character) {
+    case 'A':
+    case 'a':
+      return 1;
+    case 'B':
+    case 'b':
+      return 2;
+    case 'C':
+    case 'c':
+      return 3;
+    case 'Ç':
+    case 'ç':
+      return 4;
+    case 'D':
+    case 'd':
+      return 5;
+    case 'E':
+    case 'e':
+      return 6;
+    case 'F':
+    case 'f':
+      return 7;
+    case 'G':
+    case 'g':
+      return 8;
+    case 'Ğ':
+    case 'ğ':
+      return 9;
+    case 'H':
+    case 'h':
+      return 10;
+    case 'I':
+    case 'ı':
+      return 11;
+    case 'İ':
+    case 'i':
+      return 12;
+    case 'J':
+    case 'j':
+      return 13;
+    case 'K':
+    case 'k':
+      return 14;
+    case 'L':
+    case 'l':
+      return 15;
+    case 'M':
+    case 'm':
+      return 16;
+    case 'N':
+    case 'n':
+      return 17;
+    case 'O':
+    case 'o':
+      return 18;
+    case 'Ö':
+    case 'ö':
+      return 19;
+    case 'P':
+    case 'p':
+      return 20;
+    case 'R':
+    case 'r':
+      return 21;
+    case 'S':
+    case 's':
+      return 22;
+    case 'Ş':
+    case 'ş':
+      return 23;
+    case 'T':
+    case 't':
+      return 24;
+    case 'U':
+    case 'u':
+      return 25;
+    case 'Ü':
+    case 'ü':
+      return 26;
+    case 'V':
+    case 'v':
+      return 27;
+    case 'Y':
+    case 'y':
+      return 28;
+    case 'Z':
+    case 'z':
+      return 29;
+  }
+
+  return 1000 + character.runes.first;
 }

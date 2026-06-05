@@ -42,7 +42,7 @@
         android:ellipsize="end"
         android:includeFontPadding="false"
         android:maxLines="1"
-        android:text="Kalan 00:18"
+        android:text="3s 19dk kaldı"
         android:textColor="#49454F"
         android:textSize="12sp" />
 </LinearLayout>

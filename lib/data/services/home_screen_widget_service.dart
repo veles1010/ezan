@@ -109,14 +109,21 @@ class HomeScreenWidgetService {
 
   String _formatRemainingTime(DateTime targetDateTime) {
     final remaining = targetDateTime.difference(DateTime.now());
-    final safeRemaining = remaining.isNegative ? Duration.zero : remaining;
-    final hours = safeRemaining.inHours;
-    final minutes = safeRemaining.inMinutes.remainder(60);
-    return '${_twoDigits(hours)}:${_twoDigits(minutes)}';
-  }
+    if (remaining.inMinutes < 1) {
+      return 'Vakit girdi';
+    }
 
-  String _twoDigits(int value) {
-    return value.toString().padLeft(2, '0');
+    final hours = remaining.inHours;
+    final minutes = remaining.inMinutes.remainder(60);
+    final fullText = hours > 0
+        ? '$hours saat $minutes dakika kaldı'
+        : '$minutes dakika kaldı';
+
+    if (fullText.length <= 16) {
+      return fullText;
+    }
+
+    return hours > 0 ? '${hours}s ${minutes}dk kaldı' : '${minutes}dk kaldı';
   }
 
   Future<void> _saveWidgetData({
@@ -159,7 +166,7 @@ class HomeScreenWidgetService {
         cityName: 'Ezan Vakti',
         nextPrayerName: '--',
         nextPrayerTime: '--:--',
-        remainingTime: '--:--',
+        remainingTime: '--',
         nextPrayerTargetMillis: '0',
         prayerSchedule: '',
       );
