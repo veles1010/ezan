@@ -38,10 +38,17 @@ class NotificationService {
 
   Future<void> initialize() async {
     if (_isInitialized) {
+      debugPrint('[NOTIFICATION] initialize skipped: already initialized.');
       return;
     }
 
+    debugPrint(
+      '[NOTIFICATION] initialize started. '
+      'kIsWeb=$kIsWeb, platform=$defaultTargetPlatform',
+    );
+
     if (kIsWeb) {
+      debugPrint('[NOTIFICATION] initialize skipped: web platform.');
       _isInitialized = true;
       return;
     }
@@ -60,8 +67,10 @@ class NotificationService {
     );
 
     await _plugin.initialize(initSettings);
+    debugPrint('[NOTIFICATION] FlutterLocalNotificationsPlugin initialized.');
     await _requestRuntimePermissions();
     _isInitialized = true;
+    debugPrint('[NOTIFICATION] initialize success.');
   }
 
   Future<NotificationScheduleResult> schedulePrayerReminders(
@@ -70,11 +79,23 @@ class NotificationService {
     int fridayReminderMinutesBefore = 0,
   }) async {
     if (kIsWeb) {
+      debugPrint('[NOTIFICATION] schedulePrayerReminders skipped: web.');
       return const NotificationScheduleResult(scheduledAny: false);
     }
 
     try {
+      debugPrint(
+        '[NOTIFICATION] schedulePrayerReminders started. '
+        'city=${dailyPrayerTimes.city}, date=${dailyPrayerTimes.date}, '
+        'prayerCount=${dailyPrayerTimes.prayerTimes.length}, '
+        'minutesBefore=$minutesBefore, '
+        'fridayReminderMinutesBefore=$fridayReminderMinutesBefore',
+      );
+
       if (!_isInitialized) {
+        debugPrint(
+          '[NOTIFICATION] schedulePrayerReminders initializing service.',
+        );
         await initialize();
       }
 
@@ -92,7 +113,17 @@ class NotificationService {
             .dateTimeOn(dailyPrayerTimes.date)
             .subtract(Duration(minutes: minutesBefore));
 
+        debugPrint(
+          '[NOTIFICATION] Evaluating prayer reminder. '
+          'name=${prayerTime.name}, time=${prayerTime.formattedTime}, '
+          'scheduledDate=$scheduledDate, now=$now',
+        );
+
         if (scheduledDate.isBefore(now)) {
+          debugPrint(
+            '[NOTIFICATION] Prayer reminder skipped: scheduled time is past. '
+            'name=${prayerTime.name}, scheduledDate=$scheduledDate',
+          );
           continue;
         }
 
@@ -101,6 +132,11 @@ class NotificationService {
           prayerTime,
         );
         final notificationDate = tz.TZDateTime.from(scheduledDate, tz.local);
+        debugPrint(
+          '[NOTIFICATION] Scheduling prayer reminder... '
+          'id=$notificationId, name=${prayerTime.name}, '
+          'scheduledFor=$notificationDate',
+        );
         final attempt = await _schedulePrayerReminderWithFallback(
           notificationId: notificationId,
           dailyPrayerTimes: dailyPrayerTimes,
@@ -130,6 +166,10 @@ class NotificationService {
       if (scheduledNotificationCount == 0) {
         debugPrint('Bugün için planlanacak bildirim kalmadı');
       }
+      debugPrint(
+        '[NOTIFICATION] Prayer reminders scheduled count: '
+        '$scheduledNotificationCount',
+      );
       final fridayScheduleResult = await _scheduleFridayPrayerReminderIfNeeded(
         dailyPrayerTimes,
         minutesBefore: fridayReminderMinutesBefore,
@@ -146,6 +186,12 @@ class NotificationService {
 
       await _saveTrackedPrayerNotificationIds(scheduledPrayerNotificationIds);
       await _saveTrackedFridayNotificationIds(scheduledFridayNotificationIds);
+      debugPrint(
+        '[NOTIFICATION] schedulePrayerReminders finished. '
+        'prayerScheduled=$scheduledNotificationCount, '
+        'fridayScheduled=$scheduledFridayNotificationCount, '
+        'exactAlarmPermissionRequired=$exactAlarmPermissionRequired',
+      );
       return NotificationScheduleResult(
         scheduledAny:
             scheduledNotificationCount > 0 || scheduledFridayNotificationCount > 0,
@@ -176,16 +222,21 @@ class NotificationService {
 
   Future<void> showTestNotification() async {
     if (kIsWeb) {
+      debugPrint('[NOTIFICATION] showTestNotification skipped: web.');
       return;
     }
 
     try {
+      debugPrint('[NOTIFICATION] Showing immediate test notification...');
       if (!_isInitialized) {
+        debugPrint('[NOTIFICATION] showTestNotification initializing service.');
         await initialize();
       }
 
+      final notificationId = _nextTestNotificationId();
+      debugPrint('[NOTIFICATION] Immediate test notification id=$notificationId');
       await _plugin.show(
-        _nextTestNotificationId(),
+        notificationId,
         'Ezan Vakti Test',
         'Bildirim sistemi çalışıyor.',
         const NotificationDetails(
@@ -199,6 +250,7 @@ class NotificationService {
           iOS: DarwinNotificationDetails(),
         ),
       );
+      debugPrint('[NOTIFICATION] Immediate test notification success.');
     } catch (error, stackTrace) {
       debugPrint('Test bildirimi gönderilemedi: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -207,15 +259,30 @@ class NotificationService {
 
   Future<bool?> canScheduleExactAlarms() async {
     if (!_isAndroidPlatform) {
+      debugPrint(
+        '[NOTIFICATION] Exact alarm check skipped: not Android platform.',
+      );
       return true;
     }
 
     try {
+      debugPrint('[NOTIFICATION] Checking exact alarm permission...');
       final androidPlugin = _plugin
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
           >();
-      return await androidPlugin?.canScheduleExactNotifications();
+      if (androidPlugin == null) {
+        debugPrint(
+          '[NOTIFICATION] Exact alarm check failed: Android plugin is null.',
+        );
+        return null;
+      }
+
+      final canSchedule = await androidPlugin.canScheduleExactNotifications();
+      debugPrint(
+        '[NOTIFICATION] Exact alarm permission result: $canSchedule',
+      );
+      return canSchedule;
     } catch (error, stackTrace) {
       debugPrint('Kesin alarm izni kontrol edilemedi: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -225,10 +292,14 @@ class NotificationService {
 
   Future<bool?> openExactAlarmSettings() async {
     if (!_isAndroidPlatform) {
+      debugPrint(
+        '[NOTIFICATION] Exact alarm settings skipped: not Android platform.',
+      );
       return true;
     }
 
     try {
+      debugPrint('[NOTIFICATION] Opening exact alarm settings...');
       if (!_isInitialized) {
         await initialize();
       }
@@ -238,7 +309,10 @@ class NotificationService {
             AndroidFlutterLocalNotificationsPlugin
           >();
       final isGranted = await androidPlugin?.requestExactAlarmsPermission();
-      debugPrint('Kesin alarm izin ekranı açıldı, izin durumu: $isGranted');
+      debugPrint(
+        '[NOTIFICATION] Kesin alarm izin ekranı açıldı, '
+        'izin durumu: $isGranted',
+      );
       return isGranted;
     } catch (error, stackTrace) {
       debugPrint('Kesin alarm izin ekranı açılamadı: $error');
@@ -250,11 +324,19 @@ class NotificationService {
   Future<NotificationScheduleResult> scheduleTestNotificationAfterOneMinute()
       async {
     if (kIsWeb) {
+      debugPrint(
+        '[NOTIFICATION] scheduleTestNotificationAfterOneMinute skipped: web.',
+      );
       return const NotificationScheduleResult(scheduledAny: false);
     }
 
     try {
+      debugPrint('[NOTIFICATION] Scheduling test notification...');
       if (!_isInitialized) {
+        debugPrint(
+          '[NOTIFICATION] scheduleTestNotificationAfterOneMinute '
+          'initializing service.',
+        );
         await initialize();
       }
       await _prepareLocalTimezone();
@@ -263,7 +345,8 @@ class NotificationService {
       final notificationDate =
           tz.TZDateTime.now(tz.local).add(const Duration(minutes: 1));
 
-      debugPrint('Planlı test bildirimi zamanı: $notificationDate');
+      debugPrint('[NOTIFICATION] Scheduled for: $notificationDate');
+      debugPrint('[NOTIFICATION] Test notification id=$notificationId');
 
       final attempt = await _scheduleTestNotificationWithFallback(
         notificationId: notificationId,
@@ -272,8 +355,13 @@ class NotificationService {
 
       if (attempt.scheduled) {
         debugPrint(
-          'Planlı test bildirimi planlandı: '
+          '[NOTIFICATION] Success. Planlı test bildirimi planlandı: '
           'zaman=$notificationDate, notification id=$notificationId',
+        );
+      } else {
+        debugPrint(
+          '[NOTIFICATION] Failed. Planlı test bildirimi planlanamadı: '
+          'notification id=$notificationId',
         );
       }
 
@@ -292,8 +380,10 @@ class NotificationService {
   }
 
   Future<void> _prepareLocalTimezone() async {
+    debugPrint('[NOTIFICATION] Preparing local timezone...');
     tz.initializeTimeZones();
     await _configureLocalTimezone();
+    debugPrint('[NOTIFICATION] Local timezone ready: ${tz.local.name}');
   }
 
   Future<void> _configureLocalTimezone() async {
@@ -302,8 +392,11 @@ class NotificationService {
       final timezoneName = timezoneInfo is String
           ? timezoneInfo
           : timezoneInfo.name as String;
+      debugPrint('[NOTIFICATION] Device timezone: $timezoneName');
       tz.setLocalLocation(tz.getLocation(timezoneName));
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('[NOTIFICATION] Timezone configuration failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
       // Varsayılan timezone ile devam edilir.
     }
   }
@@ -318,6 +411,11 @@ class NotificationService {
     var exactAlarmPermissionRequired = false;
 
     try {
+      debugPrint(
+        '[NOTIFICATION] Trying exact prayer reminder. '
+        'id=$notificationId, name=${prayerTime.name}, '
+        'scheduledFor=$notificationDate',
+      );
       await _schedulePrayerReminder(
         notificationId: notificationId,
         dailyPrayerTimes: dailyPrayerTimes,
@@ -325,6 +423,10 @@ class NotificationService {
         notificationDate: notificationDate,
         minutesBefore: minutesBefore,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      );
+      debugPrint(
+        '[NOTIFICATION] Exact prayer reminder success. '
+        'id=$notificationId',
       );
       return const _ScheduleAttempt(scheduled: true);
     } catch (error, stackTrace) {
@@ -341,6 +443,11 @@ class NotificationService {
     }
 
     try {
+      debugPrint(
+        '[NOTIFICATION] Trying inexact prayer reminder. '
+        'id=$notificationId, name=${prayerTime.name}, '
+        'scheduledFor=$notificationDate',
+      );
       await _schedulePrayerReminder(
         notificationId: notificationId,
         dailyPrayerTimes: dailyPrayerTimes,
@@ -348,6 +455,10 @@ class NotificationService {
         notificationDate: notificationDate,
         minutesBefore: minutesBefore,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      );
+      debugPrint(
+        '[NOTIFICATION] Inexact prayer reminder success. '
+        'id=$notificationId',
       );
       return _ScheduleAttempt(
         scheduled: true,
@@ -375,8 +486,13 @@ class NotificationService {
     required tz.TZDateTime notificationDate,
     required int minutesBefore,
     required AndroidScheduleMode androidScheduleMode,
-  }) {
-    return _plugin.zonedSchedule(
+  }) async {
+    debugPrint(
+      '[NOTIFICATION] zonedSchedule prayer reminder. '
+      'id=$notificationId, title=${prayerTime.name} vakti yaklaşıyor, '
+      'scheduledFor=$notificationDate, mode=$androidScheduleMode',
+    );
+    await _plugin.zonedSchedule(
       notificationId,
       '${prayerTime.name} vakti yaklaşıyor',
       '${dailyPrayerTimes.city} için ${prayerTime.formattedTime} vaktine '
@@ -396,12 +512,19 @@ class NotificationService {
           UILocalNotificationDateInterpretation.absoluteTime,
       androidScheduleMode: androidScheduleMode,
     );
+    debugPrint('[NOTIFICATION] zonedSchedule prayer success. id=$notificationId');
   }
 
   Future<_FridayScheduleResult> _scheduleFridayPrayerReminderIfNeeded(
     DailyPrayerTimes dailyPrayerTimes, {
     required int minutesBefore,
   }) async {
+    debugPrint(
+      '[NOTIFICATION] Evaluating Friday reminder. '
+      'city=${dailyPrayerTimes.city}, date=${dailyPrayerTimes.date}, '
+      'minutesBefore=$minutesBefore',
+    );
+
     if (minutesBefore <= 0) {
       debugPrint('Cuma hatırlatması planlanmadı: ayar kapalı.');
       return const _FridayScheduleResult(scheduled: false);
@@ -446,6 +569,10 @@ class NotificationService {
       dailyPrayerTimes.date,
     );
     final notificationDate = tz.TZDateTime.from(scheduledDate, tz.local);
+    debugPrint(
+      '[NOTIFICATION] Scheduling Friday reminder... '
+      'id=$notificationId, scheduledFor=$notificationDate',
+    );
     final attempt = await _scheduleFridayPrayerReminderWithFallback(
       notificationId: notificationId,
       notificationDate: notificationDate,
@@ -482,11 +609,18 @@ class NotificationService {
     var exactAlarmPermissionRequired = false;
 
     try {
+      debugPrint(
+        '[NOTIFICATION] Trying exact Friday reminder. '
+        'id=$notificationId, scheduledFor=$notificationDate',
+      );
       await _scheduleFridayPrayerReminder(
         notificationId: notificationId,
         notificationDate: notificationDate,
         minutesBefore: minutesBefore,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      );
+      debugPrint(
+        '[NOTIFICATION] Exact Friday reminder success. id=$notificationId',
       );
       return const _ScheduleAttempt(scheduled: true);
     } catch (error, stackTrace) {
@@ -502,11 +636,18 @@ class NotificationService {
     }
 
     try {
+      debugPrint(
+        '[NOTIFICATION] Trying inexact Friday reminder. '
+        'id=$notificationId, scheduledFor=$notificationDate',
+      );
       await _scheduleFridayPrayerReminder(
         notificationId: notificationId,
         notificationDate: notificationDate,
         minutesBefore: minutesBefore,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      );
+      debugPrint(
+        '[NOTIFICATION] Inexact Friday reminder success. id=$notificationId',
       );
       return _ScheduleAttempt(
         scheduled: true,
@@ -531,8 +672,13 @@ class NotificationService {
     required tz.TZDateTime notificationDate,
     required int minutesBefore,
     required AndroidScheduleMode androidScheduleMode,
-  }) {
-    return _plugin.zonedSchedule(
+  }) async {
+    debugPrint(
+      '[NOTIFICATION] zonedSchedule Friday reminder. '
+      'id=$notificationId, scheduledFor=$notificationDate, '
+      'mode=$androidScheduleMode',
+    );
+    await _plugin.zonedSchedule(
       notificationId,
       '🕌 Cuma Namazı',
       'Cuma namazına $minutesBefore dakika kaldı.',
@@ -551,6 +697,7 @@ class NotificationService {
           UILocalNotificationDateInterpretation.absoluteTime,
       androidScheduleMode: androidScheduleMode,
     );
+    debugPrint('[NOTIFICATION] zonedSchedule Friday success. id=$notificationId');
   }
 
   Future<_ScheduleAttempt> _scheduleTestNotificationWithFallback({
@@ -560,10 +707,17 @@ class NotificationService {
     var exactAlarmPermissionRequired = false;
 
     try {
+      debugPrint(
+        '[NOTIFICATION] Trying exact test notification. '
+        'id=$notificationId, scheduledFor=$notificationDate',
+      );
       await _scheduleTestNotification(
         notificationId: notificationId,
         notificationDate: notificationDate,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      );
+      debugPrint(
+        '[NOTIFICATION] Exact test notification success. id=$notificationId',
       );
       return const _ScheduleAttempt(scheduled: true);
     } catch (error, stackTrace) {
@@ -579,10 +733,17 @@ class NotificationService {
     }
 
     try {
+      debugPrint(
+        '[NOTIFICATION] Trying inexact test notification. '
+        'id=$notificationId, scheduledFor=$notificationDate',
+      );
       await _scheduleTestNotification(
         notificationId: notificationId,
         notificationDate: notificationDate,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      );
+      debugPrint(
+        '[NOTIFICATION] Inexact test notification success. id=$notificationId',
       );
       return _ScheduleAttempt(
         scheduled: true,
@@ -603,8 +764,13 @@ class NotificationService {
     required int notificationId,
     required tz.TZDateTime notificationDate,
     required AndroidScheduleMode androidScheduleMode,
-  }) {
-    return _plugin.zonedSchedule(
+  }) async {
+    debugPrint(
+      '[NOTIFICATION] zonedSchedule test notification. '
+      'id=$notificationId, scheduledFor=$notificationDate, '
+      'mode=$androidScheduleMode',
+    );
+    await _plugin.zonedSchedule(
       notificationId,
       'Planlı Test',
       'Zamanlanmış bildirim çalıştı.',
@@ -623,15 +789,26 @@ class NotificationService {
           UILocalNotificationDateInterpretation.absoluteTime,
       androidScheduleMode: androidScheduleMode,
     );
+    debugPrint('[NOTIFICATION] zonedSchedule test success. id=$notificationId');
   }
 
   Future<void> _requestRuntimePermissions() async {
+    debugPrint(
+      '[NOTIFICATION] Requesting runtime permissions. '
+      'platform=$defaultTargetPlatform',
+    );
     final androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
         >();
     try {
-      await androidPlugin?.requestNotificationsPermission();
+      debugPrint('[NOTIFICATION] Requesting Android POST_NOTIFICATIONS...');
+      final notificationPermissionGranted =
+          await androidPlugin?.requestNotificationsPermission();
+      debugPrint(
+        '[NOTIFICATION] Android POST_NOTIFICATIONS result: '
+        '$notificationPermissionGranted',
+      );
     } catch (error, stackTrace) {
       debugPrint('Android bildirim izni istenemedi: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -647,10 +824,15 @@ class NotificationService {
       IOSFlutterLocalNotificationsPlugin
     >();
     try {
-      await iosPlugin?.requestPermissions(
+      debugPrint('[NOTIFICATION] Requesting iOS notification permissions...');
+      final iosPermissionGranted = await iosPlugin?.requestPermissions(
         alert: true,
         badge: true,
         sound: true,
+      );
+      debugPrint(
+        '[NOTIFICATION] iOS notification permission result: '
+        '$iosPermissionGranted',
       );
     } catch (error, stackTrace) {
       debugPrint('iOS bildirim izni istenemedi: $error');
