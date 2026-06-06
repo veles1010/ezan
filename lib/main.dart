@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'dart:ui';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'app.dart';
@@ -20,7 +18,7 @@ Future<void> main() async {
         debugPrint('${details.stack}');
       };
 
-      PlatformDispatcher.instance.onError = (error, stack) {
+      WidgetsBinding.instance.platformDispatcher.onError = (error, stack) {
         debugPrint('[UNCAUGHT][PlatformDispatcher] $error');
         debugPrint('$stack');
         return true;

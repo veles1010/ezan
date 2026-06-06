@@ -475,8 +475,8 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
     final nextPrayerInfo = _findNextPrayerInfo(dailyPrayerTimes);
     final nextPrayer = nextPrayerInfo?.prayerTime;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return ListView(
+      padding: EdgeInsets.zero,
       children: [
         _HeaderCard(
           city: dailyPrayerTimes.city,
@@ -493,19 +493,17 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
           style: theme.textTheme.titleMedium,
         ),
         const SizedBox(height: 10),
-        Expanded(
-          child: ListView.separated(
-            itemCount: dailyPrayerTimes.prayerTimes.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              final prayer = dailyPrayerTimes.prayerTimes[index];
-              return PrayerTimeCard(
-                prayerTime: prayer,
-                isNextPrayer: prayer.name == nextPrayer?.name,
-              );
-            },
+        for (var index = 0;
+            index < dailyPrayerTimes.prayerTimes.length;
+            index++) ...[
+          PrayerTimeCard(
+            prayerTime: dailyPrayerTimes.prayerTimes[index],
+            isNextPrayer:
+                dailyPrayerTimes.prayerTimes[index].name == nextPrayer?.name,
           ),
-        ),
+          if (index < dailyPrayerTimes.prayerTimes.length - 1)
+            const SizedBox(height: 10),
+        ],
       ],
     );
   }
@@ -534,16 +532,16 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
   String _formatRemainingTime(DateTime targetDateTime) {
     final remaining = targetDateTime.difference(DateTime.now());
     if (remaining.inMinutes < 1) {
-      return 'Vakit girdi';
+      return 'Namaz vakti geldi';
     }
 
     final hours = remaining.inHours;
     final minutes = remaining.inMinutes.remainder(60);
     if (hours > 0) {
-      return '$hours saat $minutes dakika kaldı';
+      return '$hours saat $minutes dakika';
     }
 
-    return '$minutes dakika kaldı';
+    return '$minutes dakika';
   }
 
   String _formatAppBarDate(DateTime date) {
@@ -606,9 +604,6 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
     return '$weekday, ${date.day} $month ${date.year}';
   }
 
-  String _twoDigits(int value) {
-    return value.toString().padLeft(2, '0');
-  }
 }
 
 class _NextPrayerInfo {
@@ -843,7 +838,7 @@ class _HeaderCard extends StatelessWidget {
       child: Card(
         color: colorScheme.primaryContainer,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -856,7 +851,7 @@ class _HeaderCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               LayoutBuilder(
                 builder: (context, constraints) {
                   final nextPrayerColumn = _HeaderCardInfoColumn(
@@ -873,7 +868,7 @@ class _HeaderCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         nextPrayerColumn,
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 8),
                         remainingTimeColumn,
                       ],
                     );
@@ -922,7 +917,7 @@ class _HeaderCardInfoColumn extends StatelessWidget {
             color: colorScheme.onPrimaryContainer,
           ),
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 1),
         Text(
           value,
           maxLines: 2,
