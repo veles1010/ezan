@@ -22,7 +22,6 @@ class PrayerTimesWidgetProvider : HomeWidgetProvider() {
                     R.id.widget_next_prayer_line,
                     "${state.nextPrayerName} ${state.nextPrayerTime}"
                 )
-                setTextViewText(R.id.widget_remaining_time, state.remainingTime)
             }
 
             appWidgetManager.updateAppWidget(widgetId, views)
@@ -44,8 +43,7 @@ class PrayerTimesWidgetProvider : HomeWidgetProvider() {
         return WidgetState(
             cityName = cityName,
             nextPrayerName = nextEntry.name,
-            nextPrayerTime = nextEntry.time,
-            remainingTime = formatRemainingTime(nextEntry.targetMillis - nowMillis)
+            nextPrayerTime = nextEntry.time
         )
     }
 
@@ -85,37 +83,11 @@ class PrayerTimesWidgetProvider : HomeWidgetProvider() {
             .sortedBy { it.targetMillis }
     }
 
-    private fun formatRemainingTime(remainingMillis: Long): String {
-        if (remainingMillis < MILLIS_IN_MINUTE) {
-            return TIME_ENTERED_TEXT
-        }
-
-        val totalMinutes = remainingMillis / MILLIS_IN_MINUTE
-        val hours = totalMinutes / MINUTES_IN_HOUR
-        val minutes = totalMinutes % MINUTES_IN_HOUR
-        val fullText = if (hours > 0L) {
-            "$hours saat $minutes dakika kaldı"
-        } else {
-            "$minutes dakika kaldı"
-        }
-
-        if (fullText.length <= MAX_REMAINING_TEXT_LENGTH) {
-            return fullText
-        }
-
-        return if (hours > 0L) {
-            "${hours}s ${minutes}dk kaldı"
-        } else {
-            "${minutes}dk kaldı"
-        }
-    }
-
     private fun safeWidgetState(cityName: String = DEFAULT_CITY_NAME): WidgetState {
         return WidgetState(
             cityName = cityName,
             nextPrayerName = DEFAULT_NEXT_PRAYER_NAME,
-            nextPrayerTime = DEFAULT_NEXT_PRAYER_TIME,
-            remainingTime = DEFAULT_REMAINING_TIME
+            nextPrayerTime = DEFAULT_NEXT_PRAYER_TIME
         )
     }
 
@@ -127,14 +99,9 @@ class PrayerTimesWidgetProvider : HomeWidgetProvider() {
         private const val PRAYER_SCHEDULE_KEY = "widget_prayer_schedule"
         private const val SCHEDULE_ENTRY_SEPARATOR = ";"
         private const val SCHEDULE_PART_SEPARATOR = "|"
-        private const val MILLIS_IN_MINUTE = 60000L
-        private const val MINUTES_IN_HOUR = 60L
-        private const val MAX_REMAINING_TEXT_LENGTH = 16
         private const val DEFAULT_CITY_NAME = "Ezan Vakti"
         private const val DEFAULT_NEXT_PRAYER_NAME = "--"
         private const val DEFAULT_NEXT_PRAYER_TIME = "--:--"
-        private const val DEFAULT_REMAINING_TIME = "--"
-        private const val TIME_ENTERED_TEXT = "Vakit girdi"
     }
 }
 
@@ -147,6 +114,5 @@ private data class PrayerEntry(
 private data class WidgetState(
     val cityName: String,
     val nextPrayerName: String,
-    val nextPrayerTime: String,
-    val remainingTime: String
+    val nextPrayerTime: String
 )

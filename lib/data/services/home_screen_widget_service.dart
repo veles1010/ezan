@@ -22,7 +22,6 @@ class HomeScreenWidgetService {
   static const String widgetCityNameKey = 'widget_city_name';
   static const String widgetNextPrayerNameKey = 'widget_next_prayer_name';
   static const String widgetNextPrayerTimeKey = 'widget_next_prayer_time';
-  static const String widgetRemainingTimeKey = 'widget_remaining_time';
   static const String widgetNextPrayerTargetMillisKey =
       'widget_next_prayer_target_millis';
   static const String widgetPrayerScheduleKey = 'widget_prayer_schedule';
@@ -59,7 +58,6 @@ class HomeScreenWidgetService {
         cityName: dailyPrayerTimes.city,
         nextPrayerName: nextPrayerInfo.prayerTime.name,
         nextPrayerTime: nextPrayerInfo.prayerTime.formattedTime,
-        remainingTime: _formatRemainingTime(nextPrayerInfo.dateTime),
         nextPrayerTargetMillis:
             nextPrayerInfo.dateTime.millisecondsSinceEpoch.toString(),
         prayerSchedule: _serializePrayerSchedule(dailyPrayerTimes),
@@ -107,30 +105,10 @@ class HomeScreenWidgetService {
     );
   }
 
-  String _formatRemainingTime(DateTime targetDateTime) {
-    final remaining = targetDateTime.difference(DateTime.now());
-    if (remaining.inMinutes < 1) {
-      return 'Vakit girdi';
-    }
-
-    final hours = remaining.inHours;
-    final minutes = remaining.inMinutes.remainder(60);
-    final fullText = hours > 0
-        ? '$hours saat $minutes dakika kaldı'
-        : '$minutes dakika kaldı';
-
-    if (fullText.length <= 16) {
-      return fullText;
-    }
-
-    return hours > 0 ? '${hours}s ${minutes}dk kaldı' : '${minutes}dk kaldı';
-  }
-
   Future<void> _saveWidgetData({
     required String cityName,
     required String nextPrayerName,
     required String nextPrayerTime,
-    required String remainingTime,
     required String nextPrayerTargetMillis,
     required String prayerSchedule,
   }) async {
@@ -142,10 +120,6 @@ class HomeScreenWidgetService {
     await _homeWidgetClient.saveWidgetData(
       widgetNextPrayerTimeKey,
       nextPrayerTime,
-    );
-    await _homeWidgetClient.saveWidgetData(
-      widgetRemainingTimeKey,
-      remainingTime,
     );
     await _homeWidgetClient.saveWidgetData(
       widgetNextPrayerTargetMillisKey,
@@ -166,7 +140,6 @@ class HomeScreenWidgetService {
         cityName: 'Ezan Vakti',
         nextPrayerName: '--',
         nextPrayerTime: '--:--',
-        remainingTime: '--',
         nextPrayerTargetMillis: '0',
         prayerSchedule: '',
       );
