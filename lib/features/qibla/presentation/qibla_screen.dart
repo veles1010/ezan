@@ -178,6 +178,7 @@ class _QiblaContent extends StatelessWidget {
                 const SizedBox(height: 24),
                 _QiblaCompass(
                   arrowRotationDegrees: arrowRotationDegrees,
+                  deviceHeadingDegrees: deviceHeadingDegrees,
                   isAligned: isAligned,
                 ),
                 const SizedBox(height: 24),
@@ -284,10 +285,12 @@ class _SelectedLocationLabel extends StatelessWidget {
 class _QiblaCompass extends StatelessWidget {
   const _QiblaCompass({
     required this.arrowRotationDegrees,
+    required this.deviceHeadingDegrees,
     required this.isAligned,
   });
 
   final double arrowRotationDegrees;
+  final double? deviceHeadingDegrees;
   final bool isAligned;
 
   @override
@@ -296,6 +299,9 @@ class _QiblaCompass extends StatelessWidget {
     final compassColor = isAligned ? Colors.green.shade700 : colorScheme.primary;
     final borderColor =
         isAligned ? Colors.green.shade700 : colorScheme.outlineVariant;
+    final headingDegrees = deviceHeadingDegrees ?? 0;
+    final compassRotation = -headingDegrees * math.pi / 180;
+    final labelCounterRotation = headingDegrees * math.pi / 180;
 
     return SizedBox.square(
       dimension: 260,
@@ -309,21 +315,44 @@ class _QiblaCompass extends StatelessWidget {
               border: Border.all(color: borderColor, width: 2),
             ),
           ),
-          Positioned(
-            top: 14,
-            child: _CompassDirectionLabel(label: 'K'),
-          ),
-          Positioned(
-            right: 18,
-            child: _CompassDirectionLabel(label: 'D'),
-          ),
-          Positioned(
-            bottom: 14,
-            child: _CompassDirectionLabel(label: 'G'),
-          ),
-          Positioned(
-            left: 18,
-            child: _CompassDirectionLabel(label: 'B'),
+          Transform.rotate(
+            angle: compassRotation,
+            child: SizedBox.square(
+              dimension: 260,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Positioned(
+                    top: 14,
+                    child: _CompassDirectionLabel(
+                      label: 'K',
+                      rotation: labelCounterRotation,
+                    ),
+                  ),
+                  Positioned(
+                    right: 18,
+                    child: _CompassDirectionLabel(
+                      label: 'D',
+                      rotation: labelCounterRotation,
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 14,
+                    child: _CompassDirectionLabel(
+                      label: 'G',
+                      rotation: labelCounterRotation,
+                    ),
+                  ),
+                  Positioned(
+                    left: 18,
+                    child: _CompassDirectionLabel(
+                      label: 'B',
+                      rotation: labelCounterRotation,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
           Container(
             width: 150,
@@ -349,20 +378,27 @@ class _QiblaCompass extends StatelessWidget {
 }
 
 class _CompassDirectionLabel extends StatelessWidget {
-  const _CompassDirectionLabel({required this.label});
+  const _CompassDirectionLabel({
+    required this.label,
+    required this.rotation,
+  });
 
   final String label;
+  final double rotation;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return Text(
-      label,
-      style: textTheme.titleMedium?.copyWith(
-        color: colorScheme.onPrimaryContainer,
-        fontWeight: FontWeight.w700,
+    return Transform.rotate(
+      angle: rotation,
+      child: Text(
+        label,
+        style: textTheme.titleMedium?.copyWith(
+          color: colorScheme.onPrimaryContainer,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }

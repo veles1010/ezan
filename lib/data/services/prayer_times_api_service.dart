@@ -5,17 +5,22 @@ import 'package:http/http.dart' as http;
 
 import '../models/daily_prayer_times.dart';
 import '../models/prayer_time.dart';
+import '../turkey_location_coordinates.dart';
 import '../turkey_cities_districts.dart';
 
 class PrayerTimesApiService {
-  PrayerTimesApiService({http.Client? client})
-      : _client = client ?? http.Client();
+  PrayerTimesApiService({
+    http.Client? client,
+    TurkeyLocationCoordinateResolver? coordinateResolver,
+  })  : _client = client ?? http.Client(),
+        _coordinateResolver =
+            coordinateResolver ?? TurkeyLocationCoordinateResolver();
 
-  static const String _baseUrl = 'https://api.aladhan.com/v1/timingsByCity';
-  static const String _country = 'Turkey';
+  static const String _baseUrl = 'https://api.aladhan.com/v1/timings';
   static const String _method = '13';
 
   final http.Client _client;
+  final TurkeyLocationCoordinateResolver _coordinateResolver;
 
   Future<DailyPrayerTimes> fetchDailyPrayerTimes({
     required String city,
@@ -23,11 +28,23 @@ class PrayerTimesApiService {
     DateTime? date,
   }) async {
     final location = _resolveLocation(city: city, district: district);
-    final uri = _buildTimingsUri(date: date, location: location);
+    final coordinate = await _coordinateResolver.resolve(location);
+    final uri = _buildTimingsUri(
+      date: date,
+      coordinate: coordinate,
+    );
 
+    _debugPrintPrayerTimesInput(
+      location: location,
+      coordinate: coordinate,
+      date: date,
+      uri: uri,
+    );
     debugPrint('Aladhan API URL: $uri');
     debugPrint('Aladhan API secilen il: ${location.province}');
     debugPrint('Aladhan API secilen ilce: ${location.district ?? '-'}');
+    debugPrint('Aladhan API latitude: ${coordinate.latitude}');
+    debugPrint('Aladhan API longitude: ${coordinate.longitude}');
 
     final response = await _client.get(uri);
     debugPrint('Aladhan API statusCode: ${response.statusCode}');
@@ -48,6 +65,8 @@ class PrayerTimesApiService {
     if (data is! Map<String, dynamic>) {
       throw const PrayerTimesApiException('Aladhan API veri alanı geçersiz.');
     }
+
+    _debugPrintAladhanMeta(data);
 
     final timings = data['timings'];
     if (timings is! Map<String, dynamic>) {
@@ -87,21 +106,16 @@ class PrayerTimesApiService {
   }
 
   Uri _buildTimingsUri({
-    required TurkeyLocationSelection location,
+    required TurkeyLocationCoordinate coordinate,
     DateTime? date,
   }) {
-    final endpoint =
-        date == null ? _baseUrl : '$_baseUrl/${_formatApiDate(date)}';
+    final apiDate = _formatApiDate(date ?? DateTime.now());
+    final endpoint = '$_baseUrl/$apiDate';
     final queryParameters = <String, String>{
-      'city': location.apiCity,
-      'country': _country,
+      'latitude': coordinate.latitude.toString(),
+      'longitude': coordinate.longitude.toString(),
       'method': _method,
     };
-
-    final district = location.district;
-    if (district != null && district.isNotEmpty) {
-      queryParameters['state'] = location.province;
-    }
 
     return Uri.parse('$endpoint?${_encodedQueryParameters(queryParameters)}');
   }
@@ -121,6 +135,55 @@ class PrayerTimesApiService {
 
     return TurkeyLocationSelection.tryParse(city) ??
         TurkeyLocationSelection(province: city);
+  }
+
+  void _debugPrintPrayerTimesInput({
+    required TurkeyLocationSelection location,
+    required TurkeyLocationCoordinate coordinate,
+    required Uri uri,
+    DateTime? date,
+  }) {
+    debugPrint(
+      '[PRAYER_TIMES] Input: '
+      'displayName=${location.displayName}, '
+      'province=${location.province}, '
+      'district=${location.district ?? '-'}, '
+      'latitude=${coordinate.latitude}, '
+      'longitude=${coordinate.longitude}, '
+      'method=$_method, '
+      'date=${date == null ? 'today' : _formatApiDate(date)}, '
+      'endpoint=$_baseUrl',
+    );
+    debugPrint(
+      '[PRAYER_TIMES] Coordinate input: '
+      'latitude=${coordinate.latitude}, longitude=${coordinate.longitude}',
+    );
+    debugPrint('[PRAYER_TIMES] Request URI: $uri');
+  }
+
+  void _debugPrintAladhanMeta(Map<String, dynamic> data) {
+    final meta = data['meta'];
+    if (meta is! Map<String, dynamic>) {
+      debugPrint('[PRAYER_TIMES] Aladhan meta alanı yok.');
+      return;
+    }
+
+    final method = meta['method'];
+    Object? methodId;
+    Object? methodName;
+    if (method is Map<String, dynamic>) {
+      methodId = method['id'];
+      methodName = method['name'];
+    }
+
+    debugPrint(
+      '[PRAYER_TIMES] Aladhan resolved meta: '
+      'latitude=${meta['latitude']}, '
+      'longitude=${meta['longitude']}, '
+      'timezone=${meta['timezone']}, '
+      'methodId=${methodId ?? '-'}, '
+      'methodName=${methodName ?? '-'}',
+    );
   }
 
   PrayerTime _parsePrayerTime(String name, Object? value) {
