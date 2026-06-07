@@ -14,7 +14,12 @@ class AdService {
       return;
     }
 
-    await MobileAds.instance.initialize();
+    try {
+      await MobileAds.instance.initialize();
+    } catch (error, stackTrace) {
+      debugPrint('AdMob initialize hatası: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   static String? get testBannerAdUnitId {
