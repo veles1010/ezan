@@ -134,20 +134,31 @@ class NotificationService {
         }
 
         final minutesBefore = prayerSetting.minutesBefore;
-        final prayerDateTime = prayerTime.dateTimeOn(dailyPrayerTimes.date);
+        final basePrayerDateTime = prayerTime.dateTimeOn(dailyPrayerTimes.date);
+        final now = DateTime.now();
+        final prayerDateTime = _resolvePrayerDateTimeForSchedule(
+          basePrayerDateTime: basePrayerDateTime,
+          now: now,
+        );
+        final rolledToNextDay = !_isSameDate(
+          basePrayerDateTime,
+          prayerDateTime,
+        );
         final computedNotificationDate =
             prayerDateTime.subtract(Duration(minutes: minutesBefore));
         final notificationId = _notificationId(
           dailyPrayerTimes.city,
           prayerTime,
         );
-        final now = DateTime.now();
 
         debugPrint(
           '[NOTIFICATION] Evaluating prayer reminder. '
           'name=${prayerTime.name}, '
           'now=$now, '
+          'basePrayerTime=$basePrayerDateTime, '
           'prayerTime=$prayerDateTime, '
+          'prayerDate=${_formatLogDate(prayerDateTime)}, '
+          'rolledToNextDay=$rolledToNextDay, '
           'selectedReminderDuration=${Duration(minutes: minutesBefore)}, '
           'computedNotificationTime=$computedNotificationDate, '
           'notificationId=$notificationId',
@@ -1031,6 +1042,29 @@ class NotificationService {
     );
   }
 
+  DateTime _resolvePrayerDateTimeForSchedule({
+    required DateTime basePrayerDateTime,
+    required DateTime now,
+  }) {
+    var prayerDateTime = basePrayerDateTime;
+    var rolledDays = 0;
+
+    while (!prayerDateTime.isAfter(now)) {
+      prayerDateTime = prayerDateTime.add(const Duration(days: 1));
+      rolledDays++;
+    }
+
+    if (rolledDays > 0) {
+      debugPrint(
+        '[NOTIFICATION] Prayer time moved to next schedule date. '
+        'basePrayerTime=$basePrayerDateTime, '
+        'resolvedPrayerTime=$prayerDateTime, rolledDays=$rolledDays',
+      );
+    }
+
+    return prayerDateTime;
+  }
+
   DateTime? _resolvePrayerReminderScheduleDate({
     required DateTime now,
     required DateTime prayerDateTime,
@@ -1102,6 +1136,21 @@ class NotificationService {
     }
 
     return safeDate;
+  }
+
+  bool _isSameDate(DateTime first, DateTime second) {
+    return first.year == second.year &&
+        first.month == second.month &&
+        first.day == second.day;
+  }
+
+  String _formatLogDate(DateTime dateTime) {
+    return '${dateTime.year}-${_twoDigits(dateTime.month)}-'
+        '${_twoDigits(dateTime.day)}';
+  }
+
+  String _twoDigits(int value) {
+    return value.toString().padLeft(2, '0');
   }
 
   Future<void> _debugPrintPendingNotificationRequests(String context) async {
