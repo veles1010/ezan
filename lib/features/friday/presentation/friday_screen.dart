@@ -93,17 +93,9 @@ class _FridayScreenState extends State<FridayScreen> {
   Future<NotificationScheduleResult?> _applyNotificationSettings(
     NotificationSettings settings,
   ) async {
-    if (!settings.notificationsEnabled) {
-      debugPrint(
-        'Bildirimler kapalı: Cuma ekranından bildirim planlanmadı.',
-      );
-      await _notificationService.cancelPrayerReminders();
-      return null;
-    }
-
     return _notificationService.schedulePrayerReminders(
       widget.dailyPrayerTimes,
-      minutesBefore: settings.minutesBefore,
+      prayerSettings: settings.prayerSettings,
       fridayReminderMinutesBefore: settings.fridayReminderMinutesBefore,
     );
   }

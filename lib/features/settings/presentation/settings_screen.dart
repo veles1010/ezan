@@ -21,9 +21,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ThemeSettingsService.instance;
 
   bool _isLoading = true;
-  bool _notificationsEnabled =
-      NotificationSettings.defaults.notificationsEnabled;
-  int _minutesBefore = NotificationSettings.defaults.minutesBefore;
+  Map<String, PrayerNotificationSetting> _prayerSettings =
+      NotificationSettings.defaults.prayerSettings;
   ThemeMode _themeMode = ThemeMode.system;
 
   @override
@@ -40,25 +39,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
 
     setState(() {
-      _notificationsEnabled = settings.notificationsEnabled;
-      _minutesBefore = settings.minutesBefore;
+      _prayerSettings = Map<String, PrayerNotificationSetting>.from(
+        settings.prayerSettings,
+      );
       _themeMode = themeMode;
       _isLoading = false;
     });
   }
 
-  Future<void> _setNotificationsEnabled(bool enabled) async {
+  Future<void> _setPrayerNotificationEnabled(
+    String prayerName,
+    bool enabled,
+  ) async {
+    final currentSetting =
+        _prayerSettings[prayerName] ?? NotificationSettings.defaultPrayerSetting;
     setState(() {
-      _notificationsEnabled = enabled;
+      _prayerSettings = Map<String, PrayerNotificationSetting>.from(
+        _prayerSettings,
+      )..[prayerName] = currentSetting.copyWith(enabled: enabled);
     });
-    await _settingsService.saveNotificationsEnabled(enabled);
+    await _settingsService.savePrayerNotificationEnabled(prayerName, enabled);
   }
 
-  Future<void> _setMinutesBefore(int minutesBefore) async {
+  Future<void> _setPrayerNotificationMinutesBefore(
+    String prayerName,
+    int minutesBefore,
+  ) async {
+    final currentSetting =
+        _prayerSettings[prayerName] ?? NotificationSettings.defaultPrayerSetting;
     setState(() {
-      _minutesBefore = minutesBefore;
+      _prayerSettings = Map<String, PrayerNotificationSetting>.from(
+        _prayerSettings,
+      )..[prayerName] = currentSetting.copyWith(minutesBefore: minutesBefore);
     });
-    await _settingsService.saveMinutesBefore(minutesBefore);
+    await _settingsService.savePrayerNotificationMinutesBefore(
+      prayerName,
+      minutesBefore,
+    );
   }
 
   Future<void> _sendTestNotification() async {
@@ -155,6 +172,130 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _openDurationPicker(String prayerName) async {
+    final setting =
+        _prayerSettings[prayerName] ?? NotificationSettings.defaultPrayerSetting;
+    final selectedMinutes = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        var selectedHour = setting.minutesBefore ~/ 60;
+        var selectedMinute = setting.minutesBefore.remainder(60);
+
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final totalMinutes = selectedHour * 60 + selectedMinute;
+            final isValid =
+                totalMinutes >= NotificationSettings.minPrayerReminderMinutes &&
+                    totalMinutes <=
+                        NotificationSettings.maxPrayerReminderMinutes;
+
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$prayerName bildirim süresi',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            initialValue: selectedHour,
+                            decoration: const InputDecoration(
+                              labelText: 'Saat',
+                              border: OutlineInputBorder(),
+                            ),
+                            items: [
+                              for (var hour = 0; hour <= 23; hour++)
+                                DropdownMenuItem<int>(
+                                  value: hour,
+                                  child: Text('$hour saat'),
+                                ),
+                            ],
+                            onChanged: (value) {
+                              if (value == null) {
+                                return;
+                              }
+
+                              setModalState(() {
+                                selectedHour = value;
+                                if (selectedHour == 0 && selectedMinute < 2) {
+                                  selectedMinute = 2;
+                                }
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            initialValue: selectedMinute,
+                            decoration: const InputDecoration(
+                              labelText: 'Dakika',
+                              border: OutlineInputBorder(),
+                            ),
+                            items: [
+                              for (var minute = 0; minute <= 59; minute++)
+                                DropdownMenuItem<int>(
+                                  value: minute,
+                                  child: Text('$minute dakika'),
+                                ),
+                            ],
+                            onChanged: (value) {
+                              if (value == null) {
+                                return;
+                              }
+
+                              setModalState(() {
+                                selectedMinute = value;
+                                if (selectedHour == 0 && selectedMinute < 2) {
+                                  selectedMinute = 2;
+                                }
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Minimum 0 saat 2 dakika, maksimum 23 saat 59 dakika.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 16),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FilledButton(
+                        onPressed: isValid
+                            ? () {
+                                Navigator.of(context).pop(totalMinutes);
+                              }
+                            : null,
+                        child: const Text('Kaydet'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (selectedMinutes == null) {
+      return;
+    }
+
+    await _setPrayerNotificationMinutesBefore(prayerName, selectedMinutes);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -165,12 +306,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding: const EdgeInsets.symmetric(vertical: 8),
               children: [
                 const _SectionTitle(title: 'Bildirimler'),
-                SwitchListTile(
-                  title: const Text('Bildirimler'),
-                  subtitle: Text(_notificationsEnabled ? 'Açık' : 'Kapalı'),
-                  value: _notificationsEnabled,
-                  onChanged: _setNotificationsEnabled,
-                ),
                 ListTile(
                   leading: const Icon(Icons.notifications_active_outlined),
                   title: const Text('Test bildirimi gönder'),
@@ -191,27 +326,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onTap: _openExactAlarmSettings,
                   ),
                 const Divider(height: 24),
-                const _SectionTitle(title: 'Bildirim süresi'),
-                RadioGroup<int>(
-                  groupValue: _minutesBefore,
-                  onChanged: (value) {
-                    if (value == null) {
-                      return;
-                    }
-                    _setMinutesBefore(value);
-                  },
-                  child: Column(
-                    children: [
-                      for (final minutes
-                          in NotificationSettings.allowedReminderMinutes)
-                        RadioListTile<int>(
-                          title: Text('$minutes dakika önce'),
-                          value: minutes,
-                          selected: minutes == _minutesBefore,
-                        ),
-                    ],
+                const _SectionTitle(title: 'Namaz vakti bildirimleri'),
+                for (final prayerName in NotificationSettings.prayerNames)
+                  _PrayerNotificationSettingsTile(
+                    prayerName: prayerName,
+                    setting: _prayerSettings[prayerName] ??
+                        NotificationSettings.defaultPrayerSetting,
+                    onEnabledChanged: (enabled) {
+                      _setPrayerNotificationEnabled(prayerName, enabled);
+                    },
+                    onDurationTap: () {
+                      _openDurationPicker(prayerName);
+                    },
                   ),
-                ),
                 const Divider(height: 24),
                 const _SectionTitle(title: 'Tema'),
                 RadioGroup<ThemeMode>(
@@ -255,6 +382,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
+class _PrayerNotificationSettingsTile extends StatelessWidget {
+  const _PrayerNotificationSettingsTile({
+    required this.prayerName,
+    required this.setting,
+    required this.onEnabledChanged,
+    required this.onDurationTap,
+  });
+
+  final String prayerName;
+  final PrayerNotificationSetting setting;
+  final ValueChanged<bool> onEnabledChanged;
+  final VoidCallback onDurationTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        SwitchListTile(
+          title: Text(prayerName),
+          subtitle: Text(setting.enabled ? 'Açık' : 'Kapalı'),
+          value: setting.enabled,
+          onChanged: onEnabledChanged,
+        ),
+        ListTile(
+          contentPadding: const EdgeInsetsDirectional.only(
+            start: 16,
+            end: 24,
+          ),
+          title: const Text('Bildirim Süresi'),
+          subtitle: Text(_formatReminderDuration(setting.minutesBefore)),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: onDurationTap,
+        ),
+        const Divider(height: 1),
+      ],
+    );
+  }
+}
+
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle({required this.title});
 
@@ -270,4 +436,10 @@ class _SectionTitle extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatReminderDuration(int totalMinutes) {
+  final hours = totalMinutes ~/ 60;
+  final minutes = totalMinutes.remainder(60);
+  return '$hours saat $minutes dakika';
 }

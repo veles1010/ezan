@@ -8,6 +8,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../models/daily_prayer_times.dart';
 import '../models/prayer_time.dart';
+import 'notification_settings_service.dart';
 
 class NotificationService {
   NotificationService._();
@@ -75,7 +76,7 @@ class NotificationService {
 
   Future<NotificationScheduleResult> schedulePrayerReminders(
     DailyPrayerTimes dailyPrayerTimes, {
-    required int minutesBefore,
+    required Map<String, PrayerNotificationSetting> prayerSettings,
     int fridayReminderMinutesBefore = 0,
   }) async {
     if (kIsWeb) {
@@ -88,7 +89,7 @@ class NotificationService {
         '[NOTIFICATION] schedulePrayerReminders started. '
         'city=${dailyPrayerTimes.city}, date=${dailyPrayerTimes.date}, '
         'prayerCount=${dailyPrayerTimes.prayerTimes.length}, '
-        'minutesBefore=$minutesBefore, '
+        'prayerSettings=$prayerSettings, '
         'fridayReminderMinutesBefore=$fridayReminderMinutesBefore',
       );
 
@@ -109,6 +110,17 @@ class NotificationService {
       final scheduledFridayNotificationIds = <int>{};
 
       for (final prayerTime in dailyPrayerTimes.prayerTimes) {
+        final prayerSetting = prayerSettings[prayerTime.name] ??
+            NotificationSettings.defaultPrayerSetting;
+        if (!prayerSetting.enabled) {
+          debugPrint(
+            '[NOTIFICATION] Prayer reminder skipped: disabled. '
+            'name=${prayerTime.name}',
+          );
+          continue;
+        }
+
+        final minutesBefore = prayerSetting.minutesBefore;
         final scheduledDate = prayerTime
             .dateTimeOn(dailyPrayerTimes.date)
             .subtract(Duration(minutes: minutesBefore));
@@ -116,7 +128,8 @@ class NotificationService {
         debugPrint(
           '[NOTIFICATION] Evaluating prayer reminder. '
           'name=${prayerTime.name}, time=${prayerTime.formattedTime}, '
-          'scheduledDate=$scheduledDate, now=$now',
+          'minutesBefore=$minutesBefore, scheduledDate=$scheduledDate, '
+          'now=$now',
         );
 
         if (scheduledDate.isBefore(now)) {
