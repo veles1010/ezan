@@ -1,5 +1,7 @@
 platform :ios, '14.0'
 
+require 'fileutils'
+
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
 project 'Runner', {
@@ -31,11 +33,88 @@ require File.expand_path(
 
 flutter_ios_podfile_setup
 
+def empty_privacy_manifest
+  <<~PLIST
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+    <dict>
+      <key>NSPrivacyTrackingDomains</key>
+      <array/>
+      <key>NSPrivacyAccessedAPITypes</key>
+      <array/>
+      <key>NSPrivacyCollectedDataTypes</key>
+      <array/>
+      <key>NSPrivacyTracking</key>
+      <false/>
+    </dict>
+    </plist>
+  PLIST
+end
+
+def user_defaults_privacy_manifest
+  <<~PLIST
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+    <dict>
+      <key>NSPrivacyTrackingDomains</key>
+      <array/>
+      <key>NSPrivacyAccessedAPITypes</key>
+      <array>
+        <dict>
+          <key>NSPrivacyAccessedAPIType</key>
+          <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+          <key>NSPrivacyAccessedAPITypeReasons</key>
+          <array>
+            <string>1C8F.1</string>
+          </array>
+        </dict>
+      </array>
+      <key>NSPrivacyCollectedDataTypes</key>
+      <array/>
+      <key>NSPrivacyTracking</key>
+      <false/>
+    </dict>
+    </plist>
+  PLIST
+end
+
+def ensure_plugin_privacy_manifest(plugin_name, relative_path, contents)
+  plugin_root = File.expand_path(".symlinks/plugins/#{plugin_name}", __dir__)
+  unless File.directory?(plugin_root)
+    puts "Privacy manifest check skipped for #{plugin_name}: plugin symlink not found."
+    return
+  end
+
+  path = File.join(plugin_root, relative_path)
+  return if File.exist?(path)
+
+  FileUtils.mkdir_p(File.dirname(path))
+  File.write(path, contents)
+end
+
 target 'Runner' do
   use_frameworks!
   use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
+  ensure_plugin_privacy_manifest(
+    'share_plus',
+    'ios/share_plus/Sources/share_plus/PrivacyInfo.xcprivacy',
+    empty_privacy_manifest
+  )
+  ensure_plugin_privacy_manifest(
+    'shared_preferences_foundation',
+    'darwin/shared_preferences_foundation/Sources/shared_preferences_foundation/Resources/PrivacyInfo.xcprivacy',
+    user_defaults_privacy_manifest
+  )
+  ensure_plugin_privacy_manifest(
+    'webview_flutter_wkwebview',
+    'darwin/webview_flutter_wkwebview/Sources/webview_flutter_wkwebview/Resources/PrivacyInfo.xcprivacy',
+    empty_privacy_manifest
+  )
 
   target 'RunnerTests' do
     inherit! :search_paths
