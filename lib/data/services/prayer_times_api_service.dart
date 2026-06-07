@@ -29,6 +29,47 @@ class PrayerTimesApiService {
   }) async {
     final location = _resolveLocation(city: city, district: district);
     final coordinate = await _coordinateResolver.resolve(location);
+    return _fetchDailyPrayerTimesForResolvedLocation(
+      location: location,
+      coordinate: coordinate,
+      date: date,
+    );
+  }
+
+  Future<List<DailyPrayerTimes>> fetchThirtyDayPrayerTimes({
+    required String city,
+    required DateTime startDate,
+  }) async {
+    final location = _resolveLocation(city: city);
+    final coordinate = await _coordinateResolver.resolve(location);
+    final firstDay = DateTime(startDate.year, startDate.month, startDate.day);
+    final prayerTimes = <DailyPrayerTimes>[];
+
+    debugPrint(
+      '[PRAYER_TIMES] 30 günlük takvim için koordinat çözüldü: '
+      'displayName=${location.displayName}, '
+      'latitude=${coordinate.latitude}, longitude=${coordinate.longitude}',
+    );
+
+    for (var dayOffset = 0; dayOffset < 30; dayOffset++) {
+      final date = firstDay.add(Duration(days: dayOffset));
+      prayerTimes.add(
+        await _fetchDailyPrayerTimesForResolvedLocationWithRetry(
+          location: location,
+          coordinate: coordinate,
+          date: date,
+        ),
+      );
+    }
+
+    return prayerTimes;
+  }
+
+  Future<DailyPrayerTimes> _fetchDailyPrayerTimesForResolvedLocation({
+    required TurkeyLocationSelection location,
+    required TurkeyLocationCoordinate coordinate,
+    DateTime? date,
+  }) async {
     final uri = _buildTimingsUri(
       date: date,
       coordinate: coordinate,
@@ -88,21 +129,31 @@ class PrayerTimesApiService {
     );
   }
 
-  Future<List<DailyPrayerTimes>> fetchThirtyDayPrayerTimes({
-    required String city,
-    required DateTime startDate,
+  Future<DailyPrayerTimes> _fetchDailyPrayerTimesForResolvedLocationWithRetry({
+    required TurkeyLocationSelection location,
+    required TurkeyLocationCoordinate coordinate,
+    required DateTime date,
   }) async {
-    final firstDay = DateTime(startDate.year, startDate.month, startDate.day);
-    final prayerTimes = <DailyPrayerTimes>[];
-
-    for (var dayOffset = 0; dayOffset < 30; dayOffset++) {
-      final date = firstDay.add(Duration(days: dayOffset));
-      prayerTimes.add(
-        await fetchDailyPrayerTimes(city: city, date: date),
+    try {
+      return await _fetchDailyPrayerTimesForResolvedLocation(
+        location: location,
+        coordinate: coordinate,
+        date: date,
+      );
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[PRAYER_TIMES] Takvim günü yüklenemedi, tekrar deneniyor: '
+        'date=${_formatApiDate(date)}, location=${location.displayName}, '
+        'hata=$error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      return _fetchDailyPrayerTimesForResolvedLocation(
+        location: location,
+        coordinate: coordinate,
+        date: date,
       );
     }
-
-    return prayerTimes;
   }
 
   Uri _buildTimingsUri({

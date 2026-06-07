@@ -259,10 +259,6 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
 
     final notificationSettings =
         await _notificationSettingsService.readSettings();
-    final notificationScheduleResult = await _applyNotificationSettings(
-      dailyPrayerTimes,
-      notificationSettings,
-    );
 
     if (!mounted) {
       return;
@@ -271,7 +267,6 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
     setState(() {
       _notificationSettings = notificationSettings;
     });
-    _showExactAlarmPermissionMessageIfNeeded(notificationScheduleResult);
   }
 
   Future<void> _openQibla() async {

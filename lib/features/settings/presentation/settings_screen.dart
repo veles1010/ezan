@@ -67,7 +67,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       )..[prayerName] = currentSetting.copyWith(enabled: enabled);
     });
     await _settingsService.savePrayerNotificationEnabled(prayerName, enabled);
-    await _reschedulePrayerReminders();
+    await _reschedulePrayerReminders(changedPrayerName: prayerName);
   }
 
   Future<void> _setPrayerNotificationMinutesBefore(
@@ -85,10 +85,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       prayerName,
       minutesBefore,
     );
-    await _reschedulePrayerReminders();
+    await _reschedulePrayerReminders(changedPrayerName: prayerName);
   }
 
-  Future<void> _reschedulePrayerReminders() async {
+  Future<void> _reschedulePrayerReminders({String? changedPrayerName}) async {
     if (kIsWeb) {
       return;
     }
@@ -107,6 +107,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         dailyPrayerTimes,
         prayerSettings: settings.prayerSettings,
         fridayReminderMinutesBefore: settings.fridayReminderMinutesBefore,
+        allowPastDuePrayerReminders: true,
+        pastDuePrayerName: changedPrayerName,
       );
 
       if (!mounted) {

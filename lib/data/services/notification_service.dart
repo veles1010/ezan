@@ -29,6 +29,8 @@ class NotificationService {
   static const int _fridayNotificationIdRange = 100000;
   static const int _testNotificationIdBase = 900000;
   static const int _testNotificationIdRange = 100000;
+  static const Duration _nearPastReminderTolerance = Duration(seconds: 90);
+  static const Duration _safeShortScheduleDelay = Duration(seconds: 5);
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
@@ -83,6 +85,8 @@ class NotificationService {
     DailyPrayerTimes dailyPrayerTimes, {
     required Map<String, PrayerNotificationSetting> prayerSettings,
     int fridayReminderMinutesBefore = 0,
+    bool allowPastDuePrayerReminders = false,
+    String? pastDuePrayerName,
   }) async {
     if (kIsWeb) {
       debugPrint('[NOTIFICATION] schedulePrayerReminders skipped: web.');
@@ -95,7 +99,9 @@ class NotificationService {
         'city=${dailyPrayerTimes.city}, date=${dailyPrayerTimes.date}, '
         'prayerCount=${dailyPrayerTimes.prayerTimes.length}, '
         'prayerSettings=$prayerSettings, '
-        'fridayReminderMinutesBefore=$fridayReminderMinutesBefore',
+        'fridayReminderMinutesBefore=$fridayReminderMinutesBefore, '
+        'allowPastDuePrayerReminders=$allowPastDuePrayerReminders, '
+        'pastDuePrayerName=${pastDuePrayerName ?? '-'}',
       );
 
       if (!_isInitialized) {
@@ -107,7 +113,9 @@ class NotificationService {
 
       await _cancelTrackedPrayerReminderNotifications();
       await _cancelTrackedFridayPrayerReminderNotifications();
-      final now = DateTime.now();
+      await _debugPrintPendingNotificationRequests(
+        'after canceling tracked prayer reminders',
+      );
       var scheduledNotificationCount = 0;
       var scheduledFridayNotificationCount = 0;
       var exactAlarmPermissionRequired = false;
@@ -126,34 +134,44 @@ class NotificationService {
         }
 
         final minutesBefore = prayerSetting.minutesBefore;
-        final scheduledDate = prayerTime
-            .dateTimeOn(dailyPrayerTimes.date)
-            .subtract(Duration(minutes: minutesBefore));
-
-        debugPrint(
-          '[NOTIFICATION] Evaluating prayer reminder. '
-          'name=${prayerTime.name}, time=${prayerTime.formattedTime}, '
-          'minutesBefore=$minutesBefore, scheduledDate=$scheduledDate, '
-          'now=$now',
-        );
-
-        if (scheduledDate.isBefore(now)) {
-          debugPrint(
-            '[NOTIFICATION] Prayer reminder skipped: scheduled time is past. '
-            'name=${prayerTime.name}, scheduledDate=$scheduledDate',
-          );
-          continue;
-        }
-
+        final prayerDateTime = prayerTime.dateTimeOn(dailyPrayerTimes.date);
+        final computedNotificationDate =
+            prayerDateTime.subtract(Duration(minutes: minutesBefore));
         final notificationId = _notificationId(
           dailyPrayerTimes.city,
           prayerTime,
         );
+        final now = DateTime.now();
+
+        debugPrint(
+          '[NOTIFICATION] Evaluating prayer reminder. '
+          'name=${prayerTime.name}, '
+          'now=$now, '
+          'prayerTime=$prayerDateTime, '
+          'selectedReminderDuration=${Duration(minutes: minutesBefore)}, '
+          'computedNotificationTime=$computedNotificationDate, '
+          'notificationId=$notificationId',
+        );
+
+        final scheduledDate = _resolvePrayerReminderScheduleDate(
+          now: now,
+          prayerDateTime: prayerDateTime,
+          computedNotificationDate: computedNotificationDate,
+          allowPastDuePrayerReminders: allowPastDuePrayerReminders,
+          pastDuePrayerName: pastDuePrayerName,
+          prayerName: prayerTime.name,
+          notificationId: notificationId,
+        );
+        if (scheduledDate == null) {
+          continue;
+        }
+
         final notificationDate = tz.TZDateTime.from(scheduledDate, tz.local);
         debugPrint(
           '[NOTIFICATION] Scheduling prayer reminder... '
           'id=$notificationId, name=${prayerTime.name}, '
-          'scheduledFor=$notificationDate',
+          'scheduledFor=$notificationDate, '
+          'computedNotificationTime=$computedNotificationDate',
         );
         final attempt = await _schedulePrayerReminderWithFallback(
           notificationId: notificationId,
@@ -204,6 +222,9 @@ class NotificationService {
 
       await _saveTrackedPrayerNotificationIds(scheduledPrayerNotificationIds);
       await _saveTrackedFridayNotificationIds(scheduledFridayNotificationIds);
+      await _debugPrintPendingNotificationRequests(
+        'after scheduling prayer reminders',
+      );
       debugPrint(
         '[NOTIFICATION] schedulePrayerReminders finished. '
         'prayerScheduled=$scheduledNotificationCount, '
@@ -1008,6 +1029,105 @@ class NotificationService {
       notificationIds.map((notificationId) => notificationId.toString()).toList()
         ..sort(),
     );
+  }
+
+  DateTime? _resolvePrayerReminderScheduleDate({
+    required DateTime now,
+    required DateTime prayerDateTime,
+    required DateTime computedNotificationDate,
+    required bool allowPastDuePrayerReminders,
+    required String? pastDuePrayerName,
+    required String prayerName,
+    required int notificationId,
+  }) {
+    if (computedNotificationDate.isAfter(now)) {
+      return computedNotificationDate;
+    }
+
+    final pastDuration = now.difference(computedNotificationDate);
+    if (pastDuration <= _nearPastReminderTolerance) {
+      final safeDate = _safeScheduleDateBeforePrayer(
+        now: now,
+        prayerDateTime: prayerDateTime,
+      );
+      debugPrint(
+        '[NOTIFICATION] Prayer reminder computed time is near past; '
+        'scheduling safely. name=$prayerName, id=$notificationId, '
+        'computedNotificationTime=$computedNotificationDate, now=$now, '
+        'safeNotificationTime=$safeDate',
+      );
+      return safeDate;
+    }
+
+    final allowPastDueForThisPrayer = allowPastDuePrayerReminders &&
+        (pastDuePrayerName == null || pastDuePrayerName == prayerName);
+    if (allowPastDueForThisPrayer && prayerDateTime.isAfter(now)) {
+      final safeDate = _safeScheduleDateBeforePrayer(
+        now: now,
+        prayerDateTime: prayerDateTime,
+      );
+      debugPrint(
+        '[NOTIFICATION] Prayer reminder computed time is past, but prayer is '
+        'still upcoming after a settings change; scheduling safely. '
+        'name=$prayerName, id=$notificationId, '
+        'computedNotificationTime=$computedNotificationDate, now=$now, '
+        'prayerTime=$prayerDateTime, safeNotificationTime=$safeDate',
+      );
+      return safeDate;
+    }
+
+    debugPrint(
+      '[NOTIFICATION] Prayer reminder skipped: computed time is past. '
+      'name=$prayerName, id=$notificationId, '
+      'computedNotificationTime=$computedNotificationDate, now=$now, '
+      'prayerTime=$prayerDateTime, '
+      'allowPastDuePrayerReminders=$allowPastDuePrayerReminders, '
+      'pastDuePrayerName=${pastDuePrayerName ?? '-'}',
+    );
+    return null;
+  }
+
+  DateTime _safeScheduleDateBeforePrayer({
+    required DateTime now,
+    required DateTime prayerDateTime,
+  }) {
+    final safeDate = now.add(_safeShortScheduleDelay);
+    if (safeDate.isBefore(prayerDateTime)) {
+      return safeDate;
+    }
+
+    final timeUntilPrayer = prayerDateTime.difference(now);
+    if (timeUntilPrayer > const Duration(seconds: 1)) {
+      return now.add(const Duration(seconds: 1));
+    }
+
+    return safeDate;
+  }
+
+  Future<void> _debugPrintPendingNotificationRequests(String context) async {
+    if (kIsWeb) {
+      return;
+    }
+
+    try {
+      final pendingRequests = await _plugin.pendingNotificationRequests();
+      debugPrint(
+        '[NOTIFICATION] Pending notification requests ($context): '
+        '${pendingRequests.length}',
+      );
+      for (final request in pendingRequests) {
+        debugPrint(
+          '[NOTIFICATION] Pending request: '
+          'id=${request.id}, title=${request.title}, body=${request.body}',
+        );
+      }
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[NOTIFICATION] Pending notification requests could not be read '
+        '($context): $error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   int _notificationId(String city, PrayerTime prayerTime) {
