@@ -1,8 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../../data/models/daily_prayer_times.dart';
+import '../../../data/repositories/api_prayer_times_repository.dart';
+import '../../../data/repositories/mock_prayer_times_repository.dart';
+import '../../../data/repositories/prayer_times_repository.dart';
 import '../../../data/services/notification_service.dart';
 import '../../../data/services/notification_settings_service.dart';
+import '../../../data/services/selected_city_service.dart';
 import '../../../data/services/theme_settings_service.dart';
 import 'about_privacy_screen.dart';
 
@@ -17,6 +22,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final NotificationSettingsService _settingsService =
       NotificationSettingsService();
   final NotificationService _notificationService = NotificationService.instance;
+  final SelectedCityService _selectedCityService = SelectedCityService();
+  final PrayerTimesRepository _repository = ApiPrayerTimesRepository();
+  final PrayerTimesRepository _fallbackRepository = MockPrayerTimesRepository();
   final ThemeSettingsService _themeSettingsService =
       ThemeSettingsService.instance;
 
@@ -59,6 +67,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       )..[prayerName] = currentSetting.copyWith(enabled: enabled);
     });
     await _settingsService.savePrayerNotificationEnabled(prayerName, enabled);
+    await _reschedulePrayerReminders();
   }
 
   Future<void> _setPrayerNotificationMinutesBefore(
@@ -76,6 +85,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
       prayerName,
       minutesBefore,
     );
+    await _reschedulePrayerReminders();
+  }
+
+  Future<void> _reschedulePrayerReminders() async {
+    if (kIsWeb) {
+      return;
+    }
+
+    try {
+      final dailyPrayerTimes = await _loadCurrentPrayerTimes();
+      if (dailyPrayerTimes == null) {
+        debugPrint(
+          'Bildirimler yeniden planlanamadı: seçili şehir bulunamadı.',
+        );
+        return;
+      }
+
+      final settings = await _settingsService.readSettings();
+      final result = await _notificationService.schedulePrayerReminders(
+        dailyPrayerTimes,
+        prayerSettings: settings.prayerSettings,
+        fridayReminderMinutesBefore: settings.fridayReminderMinutesBefore,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _prayerSettings = Map<String, PrayerNotificationSetting>.from(
+          settings.prayerSettings,
+        );
+      });
+      _showPrayerReminderScheduleMessageIfNeeded(result);
+    } catch (error, stackTrace) {
+      debugPrint('Bildirimler yeniden planlanamadı: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
+  Future<DailyPrayerTimes?> _loadCurrentPrayerTimes() async {
+    final city = await _selectedCityService.readSelectedCity();
+    if (city == null || city.isEmpty) {
+      return null;
+    }
+
+    final date = DateTime.now();
+    try {
+      return await _repository.getDailyPrayerTimes(city: city, date: date);
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Bildirim yeniden planlama için API verisi alınamadı, mock veriye '
+        'geçiliyor: $error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      return _fallbackRepository.getDailyPrayerTimes(city: city, date: date);
+    }
   }
 
   Future<void> _sendTestNotification() async {
@@ -141,6 +207,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
         (result.scheduledAny
             ? '1 dakika sonrası için test bildirimi planlandı.'
             : 'Test bildirimi planlanamadı.');
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        action: result.exactAlarmPermissionRequired
+            ? SnackBarAction(
+                label: 'Aç',
+                onPressed: () {
+                  _openExactAlarmSettings();
+                },
+              )
+            : null,
+      ),
+    );
+  }
+
+  void _showPrayerReminderScheduleMessageIfNeeded(
+    NotificationScheduleResult result,
+  ) {
+    final message = result.userMessage;
+    if (message == null) {
+      return;
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

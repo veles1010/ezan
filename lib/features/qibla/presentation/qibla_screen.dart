@@ -210,6 +210,8 @@ class _QiblaContent extends StatelessWidget {
                     ),
                   ),
                 ),
+                const SizedBox(height: 12),
+                const _QiblaCalibrationInfo(),
                 if (isAligned) ...[
                   const SizedBox(height: 16),
                   Text(
@@ -234,6 +236,44 @@ class _QiblaContent extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QiblaCalibrationInfo extends StatelessWidget {
+  const _QiblaCalibrationInfo();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Card(
+      color: colorScheme.surfaceContainerHighest,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.info_outline,
+              size: 18,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Kıble yönü telefonunuzun pusula sensörü kullanılarak '
+                'hesaplanır. Daha doğru sonuç için telefonunuzu havada birkaç '
+                'kez 8 şekli çizerek kalibre etmeyi deneyiniz.',
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
