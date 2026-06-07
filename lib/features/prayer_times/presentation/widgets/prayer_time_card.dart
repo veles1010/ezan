@@ -7,10 +7,12 @@ class PrayerTimeCard extends StatelessWidget {
     super.key,
     required this.prayerTime,
     required this.isNextPrayer,
+    this.compact = false,
   });
 
   final PrayerTime prayerTime;
   final bool isNextPrayer;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -20,12 +22,17 @@ class PrayerTimeCard extends StatelessWidget {
 
     return Card(
       color: containerColor,
+      margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: compact ? 9 : 14,
+        ),
         child: Row(
           children: [
             Icon(
               isNextPrayer ? Icons.notifications_active : Icons.schedule,
+              size: compact ? 22 : 24,
               color: isNextPrayer
                   ? colorScheme.onSecondaryContainer
                   : colorScheme.primary,

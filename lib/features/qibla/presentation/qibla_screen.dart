@@ -158,92 +158,120 @@ class _QiblaContent extends StatelessWidget {
     final alignedColor = Colors.green.shade700;
 
     return SafeArea(
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Kıble Yönü',
-                  textAlign: TextAlign.center,
-                  style: textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _SelectedLocationLabel(selectedLocation: selectedLocation),
-                const SizedBox(height: 24),
-                _QiblaCompass(
-                  arrowRotationDegrees: arrowRotationDegrees,
-                  deviceHeadingDegrees: deviceHeadingDegrees,
-                  isAligned: isAligned,
-                ),
-                const SizedBox(height: 24),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        _QiblaInfoRow(
-                          label: 'Kâbe yönü',
-                          value: _formatDegreeText(qiblaAngle),
-                        ),
-                        const Divider(height: 18),
-                        _QiblaInfoRow(
-                          label: 'Mevcut yön',
-                          value: deviceHeadingDegrees == null
-                              ? '--°'
-                              : _formatDegreeText(deviceHeadingDegrees!),
-                        ),
-                        const Divider(height: 18),
-                        _QiblaInfoRow(
-                          label: 'Kıbleye kalan açı',
-                          value: remainingAngle == null
-                              ? '--°'
-                              : _formatRemainingDegreeText(remainingAngle),
-                          valueColor: isAligned ? alignedColor : null,
-                        ),
-                      ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isCompact = constraints.maxHeight < 720;
+          final isVeryCompact = constraints.maxHeight < 640;
+          final horizontalPadding = constraints.maxWidth < 360 ? 14.0 : 18.0;
+          final verticalPadding =
+              isVeryCompact ? 8.0 : isCompact ? 10.0 : 16.0;
+          final sectionGap = isVeryCompact ? 8.0 : isCompact ? 10.0 : 14.0;
+          final compassSize =
+              isVeryCompact ? 188.0 : isCompact ? 214.0 : 240.0;
+          final cardPadding = isCompact ? 10.0 : 12.0;
+          final dividerHeight = isCompact ? 10.0 : 14.0;
+
+          return Center(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding,
+                vertical: verticalPadding,
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Kıble Yönü',
+                      textAlign: TextAlign.center,
+                      style: (isCompact
+                              ? textTheme.titleLarge
+                              : textTheme.headlineSmall)
+                          ?.copyWith(fontWeight: FontWeight.w700),
                     ),
-                  ),
+                    SizedBox(height: isVeryCompact ? 4 : 6),
+                    _SelectedLocationLabel(
+                      selectedLocation: selectedLocation,
+                      compact: isCompact,
+                    ),
+                    SizedBox(height: sectionGap),
+                    _QiblaCompass(
+                      arrowRotationDegrees: arrowRotationDegrees,
+                      deviceHeadingDegrees: deviceHeadingDegrees,
+                      isAligned: isAligned,
+                      dimension: compassSize,
+                    ),
+                    SizedBox(height: sectionGap),
+                    Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(cardPadding),
+                        child: Column(
+                          children: [
+                            _QiblaInfoRow(
+                              label: 'Kâbe yönü',
+                              value: _formatDegreeText(qiblaAngle),
+                              compact: isCompact,
+                            ),
+                            Divider(height: dividerHeight),
+                            _QiblaInfoRow(
+                              label: 'Mevcut yön',
+                              value: deviceHeadingDegrees == null
+                                  ? '--°'
+                                  : _formatDegreeText(deviceHeadingDegrees!),
+                              compact: isCompact,
+                            ),
+                            Divider(height: dividerHeight),
+                            _QiblaInfoRow(
+                              label: 'Kıbleye kalan açı',
+                              value: remainingAngle == null
+                                  ? '--°'
+                                  : _formatRemainingDegreeText(remainingAngle),
+                              valueColor: isAligned ? alignedColor : null,
+                              compact: isCompact,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (isAligned) ...[
+                      SizedBox(height: isVeryCompact ? 6 : 8),
+                      Text(
+                        '✓ Kıble yönündesiniz',
+                        textAlign: TextAlign.center,
+                        style: textTheme.titleMedium?.copyWith(
+                          color: alignedColor,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                    if (message != null) ...[
+                      SizedBox(height: isVeryCompact ? 6 : 8),
+                      Text(
+                        message!,
+                        textAlign: TextAlign.center,
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                    SizedBox(height: isVeryCompact ? 8 : 10),
+                    _QiblaCalibrationInfo(compact: isCompact),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                const _QiblaCalibrationInfo(),
-                if (isAligned) ...[
-                  const SizedBox(height: 16),
-                  Text(
-                    '✓ Kıble yönündesiniz',
-                    textAlign: TextAlign.center,
-                    style: textTheme.titleMedium?.copyWith(
-                      color: alignedColor,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-                if (message != null) ...[
-                  const SizedBox(height: 16),
-                  Text(
-                    message!,
-                    textAlign: TextAlign.center,
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 }
 
 class _QiblaCalibrationInfo extends StatelessWidget {
-  const _QiblaCalibrationInfo();
+  const _QiblaCalibrationInfo({required this.compact});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -253,22 +281,23 @@ class _QiblaCalibrationInfo extends StatelessWidget {
     return Card(
       color: colorScheme.surfaceContainerHighest,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(compact ? 9 : 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(
               Icons.info_outline,
-              size: 18,
+              size: compact ? 16 : 18,
               color: colorScheme.onSurfaceVariant,
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: compact ? 8 : 10),
             Expanded(
               child: Text(
                 'Kıble yönü telefonunuzun pusula sensörü kullanılarak '
                 'hesaplanır. Daha doğru sonuç için telefonunuzu havada birkaç '
                 'kez 8 şekli çizerek kalibre etmeyi deneyiniz.',
-                style: textTheme.bodySmall?.copyWith(
+                style: (compact ? textTheme.labelSmall : textTheme.bodySmall)
+                    ?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
@@ -281,9 +310,13 @@ class _QiblaCalibrationInfo extends StatelessWidget {
 }
 
 class _SelectedLocationLabel extends StatelessWidget {
-  const _SelectedLocationLabel({required this.selectedLocation});
+  const _SelectedLocationLabel({
+    required this.selectedLocation,
+    required this.compact,
+  });
 
   final String selectedLocation;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -291,7 +324,10 @@ class _SelectedLocationLabel extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 12 : 14,
+        vertical: compact ? 6 : 8,
+      ),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(999),
@@ -301,10 +337,10 @@ class _SelectedLocationLabel extends StatelessWidget {
         children: [
           Icon(
             Icons.location_on_outlined,
-            size: 18,
+            size: compact ? 16 : 18,
             color: colorScheme.onSurfaceVariant,
           ),
-          const SizedBox(width: 6),
+          SizedBox(width: compact ? 5 : 6),
           Flexible(
             child: Text(
               selectedLocation,
@@ -327,11 +363,13 @@ class _QiblaCompass extends StatelessWidget {
     required this.arrowRotationDegrees,
     required this.deviceHeadingDegrees,
     required this.isAligned,
+    required this.dimension,
   });
 
   final double arrowRotationDegrees;
   final double? deviceHeadingDegrees;
   final bool isAligned;
+  final double dimension;
 
   @override
   Widget build(BuildContext context) {
@@ -342,9 +380,13 @@ class _QiblaCompass extends StatelessWidget {
     final headingDegrees = deviceHeadingDegrees ?? 0;
     final compassRotation = -headingDegrees * math.pi / 180;
     final labelCounterRotation = headingDegrees * math.pi / 180;
+    final labelInset = dimension * 0.055;
+    final sideLabelInset = dimension * 0.07;
+    final innerCircleSize = dimension * 0.58;
+    final arrowSize = dimension * 0.43;
 
     return SizedBox.square(
-      dimension: 260,
+      dimension: dimension,
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -358,33 +400,33 @@ class _QiblaCompass extends StatelessWidget {
           Transform.rotate(
             angle: compassRotation,
             child: SizedBox.square(
-              dimension: 260,
+              dimension: dimension,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
                   Positioned(
-                    top: 14,
+                    top: labelInset,
                     child: _CompassDirectionLabel(
                       label: 'K',
                       rotation: labelCounterRotation,
                     ),
                   ),
                   Positioned(
-                    right: 18,
+                    right: sideLabelInset,
                     child: _CompassDirectionLabel(
                       label: 'D',
                       rotation: labelCounterRotation,
                     ),
                   ),
                   Positioned(
-                    bottom: 14,
+                    bottom: labelInset,
                     child: _CompassDirectionLabel(
                       label: 'G',
                       rotation: labelCounterRotation,
                     ),
                   ),
                   Positioned(
-                    left: 18,
+                    left: sideLabelInset,
                     child: _CompassDirectionLabel(
                       label: 'B',
                       rotation: labelCounterRotation,
@@ -395,8 +437,8 @@ class _QiblaCompass extends StatelessWidget {
             ),
           ),
           Container(
-            width: 150,
-            height: 150,
+            width: innerCircleSize,
+            height: innerCircleSize,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: colorScheme.surface,
@@ -407,7 +449,7 @@ class _QiblaCompass extends StatelessWidget {
             angle: arrowRotationDegrees * math.pi / 180,
             child: Icon(
               Icons.navigation,
-              size: 112,
+              size: arrowSize,
               color: compassColor,
             ),
           ),
@@ -449,11 +491,13 @@ class _QiblaInfoRow extends StatelessWidget {
     required this.label,
     required this.value,
     this.valueColor,
+    required this.compact,
   });
 
   final String label;
   final String value;
   final Color? valueColor;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -465,7 +509,8 @@ class _QiblaInfoRow extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: textTheme.bodyMedium?.copyWith(
+            style: (compact ? textTheme.bodySmall : textTheme.bodyMedium)
+                ?.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),
           ),
@@ -473,7 +518,8 @@ class _QiblaInfoRow extends StatelessWidget {
         const SizedBox(width: 12),
         Text(
           value,
-          style: textTheme.titleMedium?.copyWith(
+          style: (compact ? textTheme.titleSmall : textTheme.titleMedium)
+              ?.copyWith(
             color: valueColor ?? colorScheme.onSurface,
             fontWeight: FontWeight.w700,
           ),

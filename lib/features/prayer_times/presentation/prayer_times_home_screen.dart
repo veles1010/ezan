@@ -440,9 +440,23 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
             onSharePressed: _shareTodayPrayerTimes,
           ),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: _buildContent(theme, dailyPrayerTimes),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isCompact = constraints.maxHeight < 560;
+                return Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    isCompact ? 10 : 16,
+                    16,
+                    isCompact ? 8 : 12,
+                  ),
+                  child: _buildContent(
+                    theme,
+                    dailyPrayerTimes,
+                    compact: isCompact,
+                  ),
+                );
+              },
             ),
           ),
           const BannerAdWidget(),
@@ -451,7 +465,11 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
     );
   }
 
-  Widget _buildContent(ThemeData theme, DailyPrayerTimes? dailyPrayerTimes) {
+  Widget _buildContent(
+    ThemeData theme,
+    DailyPrayerTimes? dailyPrayerTimes, {
+    required bool compact,
+  }) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -468,7 +486,7 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
     final nextPrayer = nextPrayerInfo?.prayerTime;
 
     return ListView(
-      padding: EdgeInsets.zero,
+      padding: EdgeInsets.only(bottom: compact ? 10 : 14),
       children: [
         _HeaderCard(
           city: dailyPrayerTimes.city,
@@ -478,13 +496,14 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
           remainingTimeText: nextPrayerInfo == null
               ? 'Vakit bulunamadı'
               : _formatRemainingTime(nextPrayerInfo.dateTime),
+          compact: compact,
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: compact ? 10 : 16),
         Text(
           'Günlük Namaz Vakitleri',
           style: theme.textTheme.titleMedium,
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: compact ? 6 : 10),
         for (var index = 0;
             index < dailyPrayerTimes.prayerTimes.length;
             index++) ...[
@@ -492,9 +511,10 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
             prayerTime: dailyPrayerTimes.prayerTimes[index],
             isNextPrayer:
                 dailyPrayerTimes.prayerTimes[index].name == nextPrayer?.name,
+            compact: compact,
           ),
           if (index < dailyPrayerTimes.prayerTimes.length - 1)
-            const SizedBox(height: 10),
+            SizedBox(height: compact ? 6 : 10),
         ],
       ],
     );
@@ -814,11 +834,13 @@ class _HeaderCard extends StatelessWidget {
     required this.city,
     required this.nextPrayerText,
     required this.remainingTimeText,
+    required this.compact,
   });
 
   final String city;
   final String nextPrayerText;
   final String remainingTimeText;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -830,7 +852,10 @@ class _HeaderCard extends StatelessWidget {
       child: Card(
         color: colorScheme.primaryContainer,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: compact ? 8 : 10,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -843,16 +868,18 @@ class _HeaderCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: compact ? 6 : 8),
               LayoutBuilder(
                 builder: (context, constraints) {
                   final nextPrayerColumn = _HeaderCardInfoColumn(
                     label: 'Sıradaki vakit',
                     value: nextPrayerText,
+                    compact: compact,
                   );
                   final remainingTimeColumn = _HeaderCardInfoColumn(
                     label: 'Kalan süre',
                     value: remainingTimeText,
+                    compact: compact,
                   );
 
                   if (constraints.maxWidth < 280) {
@@ -860,7 +887,7 @@ class _HeaderCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         nextPrayerColumn,
-                        const SizedBox(height: 8),
+                        SizedBox(height: compact ? 6 : 8),
                         remainingTimeColumn,
                       ],
                     );
@@ -888,10 +915,12 @@ class _HeaderCardInfoColumn extends StatelessWidget {
   const _HeaderCardInfoColumn({
     required this.label,
     required this.value,
+    required this.compact,
   });
 
   final String label;
   final String value;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -914,7 +943,8 @@ class _HeaderCardInfoColumn extends StatelessWidget {
           value,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: textTheme.titleMedium?.copyWith(
+          style: (compact ? textTheme.titleSmall : textTheme.titleMedium)
+              ?.copyWith(
             color: colorScheme.onPrimaryContainer,
             fontWeight: FontWeight.w600,
           ),
