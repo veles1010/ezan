@@ -27,7 +27,7 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
   }
 
   void _loadBannerAd() {
-    final adUnitId = AdService.testBannerAdUnitId;
+    final adUnitId = AdService.bannerAdUnitId;
     if (adUnitId == null) {
       return;
     }
@@ -81,13 +81,16 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
       return const SizedBox.shrink();
     }
 
-    return SafeArea(
-      top: false,
-      child: Center(
-        child: SizedBox(
-          width: bannerAd.size.width.toDouble(),
-          height: bannerAd.size.height.toDouble(),
-          child: AdWidget(ad: bannerAd),
+    return ColoredBox(
+      color: Theme.of(context).colorScheme.surface,
+      child: SafeArea(
+        top: false,
+        child: Center(
+          child: SizedBox(
+            width: bannerAd.size.width.toDouble(),
+            height: bannerAd.size.height.toDouble(),
+            child: AdWidget(ad: bannerAd),
+          ),
         ),
       ),
     );

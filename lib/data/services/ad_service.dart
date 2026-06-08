@@ -4,10 +4,15 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 class AdService {
   AdService._();
 
+  static const bool useTestAds = true;
+
   static const String androidTestBannerAdUnitId =
       'ca-app-pub-3940256099942544/6300978111';
   static const String iosTestBannerAdUnitId =
       'ca-app-pub-3940256099942544/2934735716';
+
+  static const String? androidBannerAdUnitId = null;
+  static const String? iosBannerAdUnitId = null;
 
   static Future<void> initialize() async {
     if (!_isMobilePlatform) {
@@ -22,16 +27,16 @@ class AdService {
     }
   }
 
-  static String? get testBannerAdUnitId {
+  static String? get bannerAdUnitId {
     if (!_isMobilePlatform) {
       return null;
     }
 
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        return androidTestBannerAdUnitId;
+        return useTestAds ? androidTestBannerAdUnitId : androidBannerAdUnitId;
       case TargetPlatform.iOS:
-        return iosTestBannerAdUnitId;
+        return useTestAds ? iosTestBannerAdUnitId : iosBannerAdUnitId;
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.macOS:
