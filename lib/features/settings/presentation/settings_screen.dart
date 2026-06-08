@@ -9,7 +9,9 @@ import '../../../data/services/notification_service.dart';
 import '../../../data/services/notification_settings_service.dart';
 import '../../../data/services/selected_city_service.dart';
 import '../../../data/services/theme_settings_service.dart';
+import 'about_screen.dart';
 import 'about_privacy_screen.dart';
+import 'privacy_policy_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -263,6 +265,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _openAbout() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const AboutScreen(),
+      ),
+    );
+  }
+
+  Future<void> _openPrivacyPolicy() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const PrivacyPolicyScreen(),
+      ),
+    );
+  }
+
   Future<void> _openDurationPicker(String prayerName) async {
     final setting =
         _prayerSettings[prayerName] ?? NotificationSettings.defaultPrayerSetting;
@@ -463,9 +481,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const Divider(height: 24),
                 ListTile(
                   leading: const Icon(Icons.info_outline),
+                  title: const Text('Hakkında'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _openAbout,
+                ),
+                ListTile(
+                  leading: const Icon(Icons.article_outlined),
                   title: const Text('Hakkında ve Gizlilik'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _openAboutPrivacy,
+                ),
+                ListTile(
+                  leading: const Icon(Icons.privacy_tip_outlined),
+                  title: const Text('Gizlilik Politikası'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _openPrivacyPolicy,
                 ),
               ],
             ),
