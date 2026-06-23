@@ -28,7 +28,7 @@ class AboutScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Sürüm: 0.1.0+1',
+                    'Sürüm: 1.0.0+1',
                     style: textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 16),

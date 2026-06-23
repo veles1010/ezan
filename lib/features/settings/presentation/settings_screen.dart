@@ -10,7 +10,6 @@ import '../../../data/services/notification_settings_service.dart';
 import '../../../data/services/selected_city_service.dart';
 import '../../../data/services/theme_settings_service.dart';
 import 'about_screen.dart';
-import 'about_privacy_screen.dart';
 import 'privacy_policy_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -148,20 +147,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _sendTestNotification() async {
-    await _notificationService.showTestNotification();
-  }
-
-  Future<void> _scheduleTestNotificationAfterOneMinute() async {
-    final result =
-        await _notificationService.scheduleTestNotificationAfterOneMinute();
-    if (!mounted) {
-      return;
-    }
-
-    _showNotificationScheduleMessage(result);
-  }
-
   Future<void> _openExactAlarmSettings() async {
     if (!mounted) {
       return;
@@ -206,27 +191,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showNotificationScheduleMessage(NotificationScheduleResult result) {
-    final message = result.userMessage ??
-        (result.scheduledAny
-            ? '1 dakika sonrası için test bildirimi planlandı.'
-            : 'Test bildirimi planlanamadı.');
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        action: result.exactAlarmPermissionRequired
-            ? SnackBarAction(
-                label: 'Aç',
-                onPressed: () {
-                  _openExactAlarmSettings();
-                },
-              )
-            : null,
-      ),
-    );
-  }
-
   void _showPrayerReminderScheduleMessageIfNeeded(
     NotificationScheduleResult result,
   ) {
@@ -255,14 +219,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _themeMode = themeMode;
     });
     await _themeSettingsService.saveThemeMode(themeMode);
-  }
-
-  Future<void> _openAboutPrivacy() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => const AboutPrivacyScreen(),
-      ),
-    );
   }
 
   Future<void> _openAbout() async {
@@ -414,27 +370,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           : ListView(
               padding: const EdgeInsets.symmetric(vertical: 8),
               children: [
-                const _SectionTitle(title: 'Bildirimler'),
-                ListTile(
-                  leading: const Icon(Icons.notifications_active_outlined),
-                  title: const Text('Test bildirimi gönder'),
-                  onTap: _sendTestNotification,
-                ),
-                ListTile(
-                  leading: const Icon(Icons.notification_add_outlined),
-                  title: const Text('1 dakika sonra test bildirimi planla'),
-                  onTap: _scheduleTestNotificationAfterOneMinute,
-                ),
-                if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
-                  ListTile(
-                    leading: const Icon(Icons.alarm_on_outlined),
-                    title: const Text('Kesin alarm iznini aç'),
-                    subtitle: const Text(
-                      'Android 12+ cihazlarda zamanında bildirim için gerekli.',
-                    ),
-                    onTap: _openExactAlarmSettings,
-                  ),
-                const Divider(height: 24),
                 const _SectionTitle(title: 'Namaz vakti bildirimleri'),
                 for (final prayerName in NotificationSettings.prayerNames)
                   _PrayerNotificationSettingsTile(
@@ -448,6 +383,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _openDurationPicker(prayerName);
                     },
                   ),
+                if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+                  ...[
+                    const Divider(height: 24),
+                    const _SectionTitle(
+                      title: 'Gelişmiş bildirim ayarları',
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.alarm_on_outlined),
+                      title: const Text('Kesin alarm izni'),
+                      subtitle: const Text(
+                        'Android 12+ cihazlarda hatırlatmaların zamanında '
+                        'gelmesi için gerekebilir.',
+                      ),
+                      onTap: _openExactAlarmSettings,
+                    ),
+                  ],
                 const Divider(height: 24),
                 const _SectionTitle(title: 'Tema'),
                 RadioGroup<ThemeMode>(
@@ -484,12 +435,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   title: const Text('Hakkında'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _openAbout,
-                ),
-                ListTile(
-                  leading: const Icon(Icons.article_outlined),
-                  title: const Text('Hakkında ve Gizlilik'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _openAboutPrivacy,
                 ),
                 ListTile(
                   leading: const Icon(Icons.privacy_tip_outlined),
@@ -531,7 +476,7 @@ class _PrayerNotificationSettingsTile extends StatelessWidget {
             start: 16,
             end: 24,
           ),
-          title: const Text('Bildirim Süresi'),
+          title: const Text('Hatırlatma Süresi'),
           subtitle: Text(_formatReminderDuration(setting.minutesBefore)),
           trailing: const Icon(Icons.chevron_right),
           onTap: onDurationTap,
@@ -562,5 +507,13 @@ class _SectionTitle extends StatelessWidget {
 String _formatReminderDuration(int totalMinutes) {
   final hours = totalMinutes ~/ 60;
   final minutes = totalMinutes.remainder(60);
-  return '$hours saat $minutes dakika';
+  if (hours == 0) {
+    return '$minutes dakika önce';
+  }
+
+  if (minutes == 0) {
+    return '$hours saat önce';
+  }
+
+  return '$hours saat $minutes dakika önce';
 }
