@@ -11,7 +11,9 @@ class AdService {
   static const String iosTestBannerAdUnitId =
       'ca-app-pub-3940256099942544/2934735716';
 
-  static const String? androidBannerAdUnitId = null;
+  static const String androidBannerAdUnitId = String.fromEnvironment(
+    'ADMOB_ANDROID_BANNER_AD_UNIT_ID',
+  );
   static const String? iosBannerAdUnitId = null;
 
   static Future<void> initialize() async {
@@ -34,7 +36,11 @@ class AdService {
 
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        return useTestAds ? androidTestBannerAdUnitId : androidBannerAdUnitId;
+        if (!kReleaseMode) {
+          return androidTestBannerAdUnitId;
+        }
+
+        return androidBannerAdUnitId.isEmpty ? null : androidBannerAdUnitId;
       case TargetPlatform.iOS:
         return useTestAds ? iosTestBannerAdUnitId : iosBannerAdUnitId;
       case TargetPlatform.fuchsia:

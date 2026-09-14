@@ -17,6 +17,10 @@ if (keystorePropertiesFile.exists()) {
     }
 }
 
+val admobAndroidAppId =
+    System.getenv("ADMOB_ANDROID_APP_ID")
+        ?: "ca-app-pub-3940256099942544~3347511713"
+
 android {
     namespace = "com.veles.ezanvakti"
     compileSdk = flutter.compileSdkVersion
@@ -36,6 +40,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        manifestPlaceholders["ADMOB_APP_ID"] = admobAndroidAppId
     }
 
     signingConfigs {
