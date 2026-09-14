@@ -21,7 +21,7 @@ class AboutScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Ezan Vakti',
+                    'Ezan Zamanı',
                     style: textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -33,7 +33,7 @@ class AboutScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Ezan Vakti, namaz vakitlerini takip etmeye, hatırlatmalar '
+                    'Ezan Zamanı, namaz vakitlerini takip etmeye, hatırlatmalar '
                     'almaya ve kıble yönünü bulmaya yardımcı olan sade bir '
                     'uygulamadır.',
                     style: textTheme.bodyLarge,

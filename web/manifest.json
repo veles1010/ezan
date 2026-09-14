@@ -1,6 +1,6 @@
 {
-    "name": "ezan_vakti",
-    "short_name": "ezan_vakti",
+    "name": "Ezan Zamanı",
+    "short_name": "Ezan Zamanı",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

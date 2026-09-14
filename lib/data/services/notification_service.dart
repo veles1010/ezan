@@ -287,7 +287,7 @@ class NotificationService {
       debugPrint('[NOTIFICATION] Immediate test notification id=$notificationId');
       await _plugin.show(
         notificationId,
-        'Ezan Vakti Test',
+        'Ezan Zamanı Test',
         'Bildirim sistemi çalışıyor.',
         const NotificationDetails(
           android: AndroidNotificationDetails(

@@ -1,4 +1,4 @@
-# ezan_vakti
+# Ezan Zamanı
 
 A new Flutter project.
 

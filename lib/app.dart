@@ -15,7 +15,7 @@ class EzanVaktiApp extends StatelessWidget {
       builder: (context, themeMode, _) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          title: 'Ezan Vakti',
+          title: 'Ezan Zamanı',
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
           themeMode: themeMode,

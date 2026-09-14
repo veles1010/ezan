@@ -159,7 +159,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         content: const Text(
           'Android 12 ve üzeri cihazlarda namaz hatırlatmalarının zamanında '
           'gelmesi için Kesin Alarm iznini açmanız gerekir. Açılan Android '
-          'ayarında Ezan Vakti için izni etkinleştirin.',
+          'ayarında Ezan Zamanı için izni etkinleştirin.',
         ),
         actions: [
           TextButton(

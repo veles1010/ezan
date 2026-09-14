@@ -137,7 +137,7 @@ class HomeScreenWidgetService {
   Future<void> _saveSafeWidgetData() async {
     try {
       await _saveWidgetData(
-        cityName: 'Ezan Vakti',
+        cityName: 'Ezan Zamanı',
         nextPrayerName: '--',
         nextPrayerTime: '--:--',
         nextPrayerTargetMillis: '0',

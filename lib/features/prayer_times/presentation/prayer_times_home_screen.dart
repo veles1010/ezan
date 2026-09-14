@@ -383,7 +383,7 @@ class _PrayerTimesHomeScreenState extends State<PrayerTimesHomeScreen>
       _formatPrayerShareLine(dailyPrayerTimes, 'Akşam'),
       _formatPrayerShareLine(dailyPrayerTimes, 'Yatsı'),
       '',
-      'Ezan Vakti uygulaması ile paylaşıldı.',
+      'Ezan Zamanı uygulaması ile paylaşıldı.',
     ].join('\n');
   }
 
@@ -645,7 +645,7 @@ class _HomeAppBarTitle extends StatelessWidget {
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
-              'Ezan Vakti',
+              'Ezan Zamanı',
               maxLines: 1,
               style: textTheme.headlineLarge?.copyWith(
                 color: colorScheme.onSurface,

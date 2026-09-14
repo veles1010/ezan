@@ -13,7 +13,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            'Ezan Vakti Gizlilik Politikası',
+            'Ezan Zamanı Gizlilik Politikası',
             style: textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w700,
             ),
@@ -21,7 +21,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
           const SizedBox(height: 16),
           const _PolicyCard(
             children: [
-              'Ezan Vakti, namaz vakitlerini göstermek, namaz vakti '
+              'Ezan Zamanı, namaz vakitlerini göstermek, namaz vakti '
                   'hatırlatmaları göndermek ve kıble yönünü bulmaya yardımcı '
                   'olmak amacıyla geliştirilmiştir.',
               'Uygulama, namaz vakitlerini almak ve güncel bilgileri '
@@ -35,7 +35,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
               'Uygulamada reklam göstermek için Google AdMob hizmeti '
                   'kullanılabilir. Reklam hizmetleri, Google tarafından '
                   'belirlenen reklam ve gizlilik kurallarına tabidir.',
-              'Ezan Vakti, kişisel verilerinizi satmaz. Uygulama hassas '
+              'Ezan Zamanı, kişisel verilerinizi satmaz. Uygulama hassas '
                   'kişisel verilerinizi ticari amaçlarla üçüncü taraflara '
                   'aktarmaz.',
             ],

@@ -99,7 +99,7 @@ class PrayerTimesWidgetProvider : HomeWidgetProvider() {
         private const val PRAYER_SCHEDULE_KEY = "widget_prayer_schedule"
         private const val SCHEDULE_ENTRY_SEPARATOR = ";"
         private const val SCHEDULE_PART_SEPARATOR = "|"
-        private const val DEFAULT_CITY_NAME = "Ezan Vakti"
+        private const val DEFAULT_CITY_NAME = "Ezan Zamanı"
         private const val DEFAULT_NEXT_PRAYER_NAME = "--"
         private const val DEFAULT_NEXT_PRAYER_TIME = "--:--"
     }
