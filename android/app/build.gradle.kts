@@ -17,6 +17,23 @@ if (keystorePropertiesFile.exists()) {
     }
 }
 
+val releaseSigningRequiredProperties = listOf(
+    "storePassword",
+    "keyPassword",
+    "keyAlias",
+    "storeFile",
+)
+val missingReleaseSigningProperties = releaseSigningRequiredProperties.filter {
+    keystoreProperties.getProperty(it).isNullOrBlank()
+}.toMutableList()
+val releaseStoreFile = keystoreProperties.getProperty("storeFile")
+    ?.takeIf { it.isNotBlank() }
+    ?.let(rootProject::file)
+if (releaseStoreFile != null && !releaseStoreFile.isFile) {
+    missingReleaseSigningProperties += "keystore file referenced by storeFile"
+}
+val hasReleaseSigning = missingReleaseSigningProperties.isEmpty()
+
 val admobAndroidAppId =
     System.getenv("ADMOB_ANDROID_APP_ID")
         ?: "ca-app-pub-3940256099942544~3347511713"
@@ -45,17 +62,21 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            keyAlias = keystoreProperties.getProperty("keyAlias")
-            keyPassword = keystoreProperties.getProperty("keyPassword")
-            storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
-            storePassword = keystoreProperties.getProperty("storePassword")
+        if (hasReleaseSigning) {
+            create("release") {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = requireNotNull(releaseStoreFile)
+                storePassword = keystoreProperties.getProperty("storePassword")
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = false
             isShrinkResources = false
             proguardFiles(
@@ -64,6 +85,20 @@ android {
             )
         }
     }
+}
+
+val releaseTaskRequested = gradle.startParameter.taskNames.any { taskName ->
+    val task = taskName.substringAfterLast(':')
+    task.contains("Release", ignoreCase = true) ||
+        task.equals("assemble", ignoreCase = true) ||
+        task.equals("build", ignoreCase = true)
+}
+if (releaseTaskRequested && !hasReleaseSigning) {
+    throw GradleException(
+        "Release signing is not configured. Missing or invalid: " +
+            missingReleaseSigningProperties.joinToString(", ") +
+            ". Provide android/key.properties and its keystore before building a release.",
+    )
 }
 
 kotlin {
