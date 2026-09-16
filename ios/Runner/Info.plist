@@ -23,7 +23,7 @@
 		<key>CFBundleVersion</key>
 		<string>$(FLUTTER_BUILD_NUMBER)</string>
 		<key>GADApplicationIdentifier</key>
-		<string>ca-app-pub-3940256099942544~1458002511</string>
+		<string>$(ADMOB_IOS_APP_ID)</string>
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>Konumunuz, bulunduğunuz yere göre namaz vakitlerini almak için kullanılır.</string>
 		<key>LSRequiresIPhoneOS</key>

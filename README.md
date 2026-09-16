@@ -30,3 +30,19 @@ flutter pub get
 dart run flutter_launcher_icons
 dart run flutter_native_splash:create
 ```
+
+## iOS AdMob release configuration
+
+Before an iOS Release build, create the ignored
+`ios/Flutter/AdMob-Release.xcconfig` file with the production iOS App ID:
+
+```xcconfig
+ADMOB_IOS_APP_ID = <production iOS AdMob App ID>
+```
+
+Pass the production iOS banner unit ID only at build time:
+
+```bash
+flutter build ios --release \
+  --dart-define=ADMOB_IOS_BANNER_AD_UNIT_ID=<production iOS banner ad unit ID>
+```
