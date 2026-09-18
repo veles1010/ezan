@@ -493,6 +493,7 @@
 				DEVELOPMENT_TEAM = 9MW8PJUR63;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
+				OTHER_LDFLAGS = "$(inherited) -weak_framework AppTrackingTransparency";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -671,12 +672,13 @@
 			baseConfigurationReference = 9740EEB21CF90195004384FC /* Debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ADMOB_IOS_APP_ID = "ca-app-pub-3940256099942544~1458002511";
+				ADMOB_IOS_APP_ID = "ca-app-pub-2059856067409159~1212646879";
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = 9MW8PJUR63;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
+				OTHER_LDFLAGS = "$(inherited) -weak_framework AppTrackingTransparency";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -700,6 +702,7 @@
 				DEVELOPMENT_TEAM = 9MW8PJUR63;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
+				OTHER_LDFLAGS = "$(inherited) -weak_framework AppTrackingTransparency";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

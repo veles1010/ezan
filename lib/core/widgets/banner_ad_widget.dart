@@ -17,16 +17,22 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
   @override
   void initState() {
     super.initState();
-    _loadBannerAd();
+    AdService.adsReadyNotifier.addListener(_loadBannerAdIfReady);
+    _loadBannerAdIfReady();
   }
 
   @override
   void dispose() {
+    AdService.adsReadyNotifier.removeListener(_loadBannerAdIfReady);
     _bannerAd?.dispose();
     super.dispose();
   }
 
-  void _loadBannerAd() {
+  void _loadBannerAdIfReady() {
+    if (!AdService.adsReadyNotifier.value || _bannerAd != null) {
+      return;
+    }
+
     final adUnitId = AdService.bannerAdUnitId;
     if (adUnitId == null) {
       return;

@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../../../data/models/daily_prayer_times.dart';
 import '../../../data/repositories/api_prayer_times_repository.dart';
 import '../../../data/repositories/mock_prayer_times_repository.dart';
 import '../../../data/repositories/prayer_times_repository.dart';
+import '../../../data/services/ad_service.dart';
 import '../../../data/services/notification_service.dart';
 import '../../../data/services/notification_settings_service.dart';
 import '../../../data/services/selected_city_service.dart';
@@ -237,6 +239,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _openPrivacyOptions() async {
+    await AdService.showPrivacyOptionsForm();
+  }
+
   Future<void> _openDurationPicker(String prayerName) async {
     final setting =
         _prayerSettings[prayerName] ?? NotificationSettings.defaultPrayerSetting;
@@ -430,6 +436,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const Divider(height: 24),
+                ValueListenableBuilder<PrivacyOptionsRequirementStatus>(
+                  valueListenable: AdService.privacyOptionsRequirementStatus,
+                  builder: (context, status, child) {
+                    if (status != PrivacyOptionsRequirementStatus.required) {
+                      return const SizedBox.shrink();
+                    }
+
+                    return ListTile(
+                      leading: const Icon(Icons.privacy_tip_outlined),
+                      title: const Text('Gizlilik seçenekleri'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _openPrivacyOptions,
+                    );
+                  },
+                ),
                 ListTile(
                   leading: const Icon(Icons.info_outline),
                   title: const Text('Hakkında'),

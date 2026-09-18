@@ -28,6 +28,8 @@
 		<string>Konumunuz, bulunduğunuz yere göre namaz vakitlerini almak için kullanılır.</string>
 		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 		<string>Konumunuz, bulunduğunuz yere göre namaz vakitlerini almak için kullanılır.</string>
+		<key>NSUserTrackingUsageDescription</key>
+		<string>Bu izin, size daha uygun reklamlar göstermek ve reklam performansını ölçmek için kullanılacaktır.</string>
 		<key>LSRequiresIPhoneOS</key>
 		<true/>
 		<key>UILaunchStoryboardName</key>

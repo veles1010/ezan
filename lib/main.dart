@@ -25,9 +25,9 @@ Future<void> main() async {
       };
 
       await ThemeSettingsService.instance.loadThemeMode();
-      await AdService.initialize();
       await NotificationService.instance.initialize();
       runApp(const EzanVaktiApp());
+      unawaited(AdService.initialize());
     },
     (error, stack) {
       debugPrint('[UNCAUGHT][Zone] $error');
